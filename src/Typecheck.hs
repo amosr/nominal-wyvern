@@ -353,12 +353,12 @@ expand ty@(Type t1 _) (Type t2 refs2) = do
           memberDecls
   final_refs <-
     mapM
-      ( \(RefineDecl n2 _ t2') ->
+      ( \r@(RefineDecl n2 _ t2') ->
           case find (\(RefineDecl n1 _ _) -> n1 == n2) refs1 of
             Just (RefineDecl n1 b1 t1') -> do
               res <- expand t1' t2'
               return (RefineDecl n1 b1 res)
-            Nothing -> fail "this program doesn't type"
+            Nothing -> fail ("this program doesn't type: unknown type " ++ show (n2, memberDecls))
       )
       refs2
   return (Type t1 final_refs)
