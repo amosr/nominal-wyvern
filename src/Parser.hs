@@ -31,14 +31,14 @@ comma      = Token.reservedOp lexer ","
 --parser definition
 parseFile = parse parseProgram ""
 parseProgram :: Parser Program
-parseProgram = whiteSpace >> parseProgram'
+parseProgram = whiteSpace >> parseProgram' <* eof
     where parseProgram' = Program <$> many tlDecl <*> expr
 
 annot (Just _) = Shape
 annot Nothing  = Material
 typeAnnot = annot <$> optionMaybe (reserved "@shape")
 --top-level declarations
-tlDecl = nameDecl <|> subtypeDecl
+tlDecl = (nameDecl <|> subtypeDecl) <?> "top-level declaration"
   where nameDecl = NameDecl <$> typeAnnot
                             <*  reserved "name"
                             <*> identifier
@@ -51,7 +51,7 @@ tlDecl = nameDecl <|> subtypeDecl
                                   <*  resOp "<:"
                                   <*> basetype
 --member declarations
-memberDecl = typeMemDecl <|> valDecl <|> defDecl
+memberDecl = (typeMemDecl <|> valDecl <|> defDecl) <?> "member declaration"
   where typeMemDecl = TypeMemDecl <$> typeAnnot
                                   <*  reserved "type"
                                   <*> identifier
@@ -69,7 +69,7 @@ memberDecl = typeMemDecl <|> valDecl <|> defDecl
 
 --definitions
 defn :: Parser MemberDefinition
-defn = fieldDefn <|> defDefn <|> typeDefn
+defn = (fieldDefn <|> defDefn <|> typeDefn) <?> "member definition"
   where fieldDefn = ValDefn <$  reserved "val"
                             <*> identifier
                             <*  colon
@@ -97,24 +97,22 @@ refine = RefineDecl <$  reserved "type"
 path :: Parser Path
 path = chainl1 (Var <$> identifier) ((\p (Var f) -> Field p f) <$ dot)
 
-pathNotVar = do
-  p <- path
-  case p of
-    Var x -> unexpected "expected path with length > 1"
-    Field p f -> return (p,f)
+expr = (callOrPath
+   <|> primaryNonPath
+   <|> letexpr
+   <|> assert
+   <|> assertNot) <?> "expression"
 
-expr = try call
-   <|> try primary
-   <|> try letexpr
-   <|> try assert
-   <|> try assertNot
+callOrPath = do
+  p <- path <?> "variable or dot-separated path"
+  c <- optionMaybe (parens (path `sepBy` comma) <?> "method call")
+  case (p, c) of
+    (Field p t, Just args) -> return (Call p t args)
+    (Var x, Just _) -> error ("cannot call non-method variable " ++ show x)
+    (_, Nothing) -> return (PathExpr p)
 
-call = (\(p,t) args -> Call p t args) 
-   <$> pathNotVar
-   <*> parens (path `sepBy` comma)
-
-primary = PathExpr <$> path
-      <|> TopLit <$ reserved "Top"
+primaryNonPath =
+          TopLit <$ reserved "Top"
       <|> UndefLit <$ reserved "undefined"
       <|> (IntLit . fromIntegral) <$> integer
       <|> new
@@ -145,11 +143,16 @@ assertNot = Assert False <$  reserved "assertNot"
                          <*> ty
 
 --types
-ty = try (Type <$> basetype <*> braces (refine `sepBy` comma))
-     <|> (\x -> Type x []) <$> basetype
+ty = do
+  bt <- basetype
+  -- XXX: try: try produces bad error messages, but the braces here create ambiguity with the `new T { this => defs }` syntax
+  rs <- optionMaybe (try (braces ((refine `sepBy` comma) <?> "comma-separated type definitions") <?> "type refinement"))
+  case rs of
+    Nothing -> return (Type bt [])
+    Just rs' -> return (Type bt rs')
 
 basetype = TopType    <$ reserved "Top"
-       <|> BotType    <$ reserved "Bot"  
+       <|> BotType    <$ reserved "Bot"
        <|> nameOrPath <$> path
   where nameOrPath (Var n) = NamedType n
         nameOrPath (Field p t) = PathType p t
