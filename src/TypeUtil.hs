@@ -15,7 +15,7 @@ import Syntax
 import Text.Printf
 
 instance MonadFail Data.Functor.Identity.Identity where
-  fail = error "monad pattern match fail"
+  fail x = error ("monad pattern match fail: " ++ x)
 
 data CheckSubtype = On | Off
 
@@ -65,7 +65,7 @@ lookupGamma v = do
 lookupTLDecls :: TC m => (TopLevelDeclaration -> Bool) -> String -> m TopLevelDeclaration
 lookupTLDecls pred msg = do
   ctx <- ask
-  traceM ("toplevel" ++ show (toplevel ctx))
+  -- traceM ("toplevel" ++ show (toplevel ctx))
   search <- reader (find pred . toplevel)
   case search of
     Just x -> return x
