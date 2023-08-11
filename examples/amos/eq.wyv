@@ -1,0 +1,59 @@
+name Equatable {z =>
+  type EqT <= Top
+  def equals (x:z.EqT) : Int
+}
+
+name EqNotShape { z =>
+  type EqT <= Top
+  def equals (x:z.EqT) : Int
+}
+subtype EqNotShape <: Equatable
+
+name Integer {z =>
+  type EqT <= Integer
+  def equals (x:z.EqT) : Int
+}
+
+subtype Integer <: Equatable
+
+name Set {z =>
+  // type SetTX   <= Equatable {type EqT >= z.SetTX}
+  type SetT_Eq <= Equatable
+  type SetT    = z.SetTX { type EqT <= z.SetTX }
+  type EqT     <= Set { type SetT <= z.SetT }
+  def equals (x:z.EqT) : Int
+}
+
+subtype Set <: Equatable
+
+/*
+
+class Set<T extends Equatable<T>> extends Equatable<Set<T>>
+
+*/
+
+// bad: 
+name List { this =>
+  type ListT >= Bot
+  type EqT <= List {
+    type ListT <= EqNotShape {
+      type EqT <= this.ListT
+    }
+  }
+  def equals (x:this.EqT) : Int
+}
+
+subtype List <: Equatable
+// subtype List { type EqT = List { type ListT = Equatable } }  <: Equatable
+
+name Tree { this =>
+  type ListT >= Tree
+  type EqT <= Tree { type ListT <= EqNotShape { type EqT <= this.ListT }}
+  def equals (x:this.EqT) : Int
+}
+// subtype Tree <: Equatable
+// subtype Tree <: EqNotShape
+subtype Tree <: List
+// subtype List <: Tree
+
+assert Tree <: Equatable { type EqT <= Tree }

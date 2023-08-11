@@ -357,11 +357,12 @@ expand ty@(Type t1 _) (Type t2 refs2) = do
           case find (\(RefineDecl n1 _ _) -> n1 == n2) refs1 of
             Just (RefineDecl n1 b1 t1') -> do
               res <- expand t1' t2'
-              return (RefineDecl n1 b1 res)
-            Nothing -> fail ("this program doesn't type: unknown type " ++ show (n2, memberDecls))
+              return [RefineDecl n1 b1 res]
+            -- XXX: why is this a failure? `Bot <: n { t = tau }` should succeed, but failing here?
+            Nothing -> return [] -- fail ("expand: this program doesn't type: unknown type " ++ show (n2, memberDecls) ++ "\nty: " ++ (show ty) ++ "\nty2: " ++ (show (Type t2 refs2)))
       )
       refs2
-  return (Type t1 final_refs)
+  return (Type t1 (concat final_refs))
 
 preprocess :: TC m => Program -> m Program
 preprocess (Program decls expr) = do

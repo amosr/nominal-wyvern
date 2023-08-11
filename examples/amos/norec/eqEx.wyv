@@ -1,0 +1,24 @@
+// Modified from ../../eqEx.wyv: make Set acyclic
+
+name Equatable {z =>
+  type T >= Bot
+  def equals (x:z.T) : Int
+}
+name Fruit {z =>
+  type T = Fruit
+  val ID : Int
+  val weight : Int
+  def equals (x: Fruit) : Int
+}
+subtype Fruit <: Equatable
+
+name Set {z =>
+  type elemT <= Equatable
+  type elemTX = z.elemT {type T >= z.elemT}
+}
+
+let fruit_Set = new Set {type elemT = Fruit} {z =>
+  type elemT = Fruit
+  type elemTX = Fruit
+}
+in fruit_Set

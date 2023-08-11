@@ -1,0 +1,37 @@
+
+name Eq { z =>
+  type EQ_T <= Top
+}
+
+name List { z =>
+  type EQ_T   <= List { type EQ_T <= z.LIST_T }
+  type LIST_T <= Eq
+}
+
+subtype List <: Eq
+//     --------------
+//     List >= Bottom
+// ----------------------
+// List::EQ_T >= Eq::EQ_T
+
+name Tree { z =>
+  type EQ_T   <= Tree { type EQ_T <= Tree }
+  type LIST_T <= Tree { type LIST_T <= z.EQ_T }
+  // type LIST_T <= Tree { type LIST_T <= z.EQ_T }
+}
+
+subtype Tree <: List
+//                             --------------------
+// …                           Tree::EQ_T >= Bottom
+// ------------------------    --------------------
+// Tree <= List                Tree <= Eq
+// ------------------------    ------------------
+// Tree::EQ_T <= List::EQ_T    Tree::LIST_T <= Eq
+// ----------------------------------------------
+// Tree <= List                                            Tree <= Unit
+// -----------------------------------     ----------------------------
+// Tree::EQ_T <= List::EQ_T                Tree::LIST_T <= List::LIST_T
+// --------------------------------------------------------------------
+//                          Tree <= List
+
+0

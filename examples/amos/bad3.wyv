@@ -1,0 +1,48 @@
+name A { z =>
+  type T <= Top
+}
+name B { z =>
+  type T <= B { type T <= B }
+}
+subtype B <: A
+//  B    <= Top
+// ----------------
+//  B::T <= A::T
+// ----------------
+//  B    <= A
+
+name C { z =>
+  type T <= C { type T <= C }
+}
+
+subtype C <: B
+//        …
+// --------------
+//  C::T <= B::T
+// --------------
+//  C    <= B
+// --------------
+//  C::T <= B::T
+// --------------
+//  C    <= B
+
+
+/*
+Nominal subtyping graph:
+  B -{}> A
+  C -{}> B
+
+Subtype dependency graph:
+  A::T -> Top
+  B::T -> B
+  C::T -> C
+
+  A -> B
+  B -> C
+
+ no cycles
+
+*/
+
+// new C { this => type T = C }
+1

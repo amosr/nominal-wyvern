@@ -1,0 +1,70 @@
+name APP { z =>
+  type f <= Top
+  type e <= Top
+}
+
+name S { z => }
+name K { z => }
+
+name RED1 { z =>
+  type from    <= Top
+  type to      <= Top
+  type subtree <= Top
+
+  type x <= Top
+  type y <= Top
+  type z <= Top
+}
+
+name RED1_S { z =>
+  type x <= Top
+  type y <= Top
+  type z <= Top
+
+  type from <= APP {
+    type f = APP {
+      type f = APP {
+        type f <= S,
+        type e <= z.x
+      },
+      type e <= z.y
+    },
+    type e <= z.z
+  }
+
+  type to <= APP {
+    type f <= APP {
+      type f = z.x,
+      type e = z.z
+    },
+    type e <= APP {
+      type f = z.y,
+      type e = z.z
+    }
+  }
+
+  type subtree <= Top
+}
+
+name RED1_K { z =>
+  type x <= Top
+  type y <= Top
+  type z <= Top
+
+  type from <= APP {
+    type f = APP {
+      type f <= K,
+      type e <= z.x
+    },
+    type e <= z.y
+  }
+
+  type to <= z.y
+
+  type subtree <= Top
+}
+
+subtype RED1_S <: RED1
+subtype RED1_K <: RED1
+
+0

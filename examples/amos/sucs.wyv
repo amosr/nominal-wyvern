@@ -1,0 +1,33 @@
+name S { z =>
+  type k <= Top
+}
+
+name LIST { z =>
+  type t    <= Top
+  type rest <= LIST
+}
+
+name SUCS { z =>
+  type t <= Top
+  type rest <= SUCS {
+    type t <= S { type k <= z.t }
+  }
+}
+
+subtype LIST <: SUCS
+
+/*
+
+
+                         ----------------------------------- SR-CONS XXX
+                         {}   <:      { t <= S { k <= z.t }}
+---------- S-TOP         ----------------------------------- S-NAME
+Top <= Top               LIST <: SUCS { t <= S { k <= z.t }}
+----------------------------------------------------------------------------------- STS-TYPE
+z: LIST |- { t <= Top; r <= LIST } <: { t <= Top; r <= SUCS { t <= S { k <= z.t }}}
+----------------------------------------------------------------------------------- x
+                 LIST {} <: SUCS |- LIST {} <: SUCS
+
+*/
+
+0

@@ -1,0 +1,62 @@
+name S { z =>
+  type k <= Top
+}
+
+/*
+name V { z => }
+subtype V { type k <= S } <: Top
+*/
+
+/*
+name Sinf { z =>
+  type number <= Top
+  type succ <= Sinf {
+    type number = S { type k <= z.number }
+  }
+}
+
+name Zinf { z =>
+  type number <= Top
+  type succ <= Zinf {
+    type number = z.number
+  }
+}
+
+subtype Sinf <: Zinf
+*/
+
+/*
+name TAILS { z =>
+  type input <= Top
+  // type output <= Top
+  type tails <= TAILS {
+    type input <= z.input
+    // type output <= Top // z.output
+  }
+}
+
+name OK { z =>
+  type input <= Top
+  // type output <= Top
+  type tails <= OK {
+    type input <= S { type k = z.input }
+    // type output <= Top // S { type k = z.output }
+  }
+}
+*/
+
+name TAILS { z =>
+  type input <= Top
+  type tails <= TAILS
+}
+
+name OK { z =>
+  type input <= Top
+  type tails <= OK {
+    type input <= S { type k = z.input }
+  }
+}
+
+subtype TAILS <: OK
+
+0

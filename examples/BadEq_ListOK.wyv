@@ -1,0 +1,11 @@
+// This should be OK, but it isn't
+name Eq {z =>
+  type E >= Bot
+}
+name List {z =>
+  type T <= Top
+  type E = List {type T <= Eq {type E >= z.T}}
+}
+subtype List <: Eq
+
+assert List <: Eq

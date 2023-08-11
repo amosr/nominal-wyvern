@@ -1,0 +1,38 @@
+// External monoid definition
+
+name Monoid {z =>
+  type T >= Bot
+  val id : z.T
+  def op(a:z.T, b:z.T):z.T
+}
+
+
+name CountMonoid { z =>
+  type T = Int
+  val id: Int
+  def op(a: Int, b: Int): Int
+}
+
+subtype CountMonoid <: Monoid
+
+name Pair { z =>
+  type A >= Bot
+  type B >= Bot
+}
+
+name PairMonoid { z =>
+  type A >= Bot
+  type MA <= Monoid { type T = z.A }
+  type B >= Bot
+  type MB <= Monoid { type T = z.B }
+  // What? Why no type A?
+  // > nominal-wyvern: monad pattern match fail: this program doesn't type: unknown type ("A",[])
+  type T = Pair { type A = z.A, type B = z.B }
+
+  val id: z.T
+  def op(a: z.T, b: z.T): z.T
+}
+
+subtype PairMonoid <: Monoid
+
+0

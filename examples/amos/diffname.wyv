@@ -1,0 +1,11 @@
+name List1 { this =>
+  type E <= List1
+}
+
+name List2 { this =>
+  type E <= List2
+}
+
+subtype List1 <: List2
+
+assert List1 <: List2
