@@ -1,0 +1,14 @@
+/** Infinite loop: cycle due to non-singleton paths */
+name Indirection { self =>
+  type T <= Indirection
+  val field: Indirection
+}
+
+name IndirectionWithField { self =>
+  type T <= Indirection
+  val field: self.field.T
+}
+
+subtype IndirectionWithField <: Indirection
+
+0
