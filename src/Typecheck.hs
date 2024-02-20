@@ -135,10 +135,22 @@ unfoldExpanded (Type base rs) =
   case base of
     NamedType n -> do
       NameDecl _ _ z decls <- lookupTLDecls pred msg
-      return (z, map refToDecl rs ++ decls)
+      -- Shadowing: only take the declarations from type that are not
+      -- overwritten by the refinement.
+      let decls' = filter noshadow decls
+      return (z, map refToDecl rs ++ decls')
       where
         pred (NameDecl _ n' _ _) = n == n'
         pred _ = False
+
+        noshadow (TypeMemDecl _ t _ _) =
+          all (notnamed t) rs
+        noshadow _ = True
+
+        notnamed t (RefineDecl t' _ _) =
+          t /= t'
+
+
         msg = printf "couldn't find name %s" (show n)
     _ -> return (Binding "z" (-1), map refToDecl rs)
 
