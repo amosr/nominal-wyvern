@@ -371,10 +371,14 @@ expand ty@(Type t1 _) (Type t2 refs2) = do
               res <- expand t1' t2'
               return [RefineDecl n1 b1 res]
             -- XXX: why is this a failure? `Bot <: n { t = tau }` should succeed, but failing here?
-            Nothing -> return [] -- fail ("expand: this program doesn't type: unknown type " ++ show (n2, memberDecls) ++ "\nty: " ++ (show ty) ++ "\nty2: " ++ (show (Type t2 refs2)))
+            Nothing -> return []
+            -- Nothing -> fail ("expand: this program doesn't type: unknown type " ++ show (n2, memberDecls) ++ "\nty: " ++ (show ty) ++ "\nty2: " ++ (show (Type t2 refs2)))
       )
       refs2
-  return (Type t1 (concat final_refs))
+  let refs2' = concat final_refs
+  -- Keep any refinements from refs1 that aren't overwritten by refs2
+  let refs1' = filter (\r1@(RefineDecl n1 _ _) -> all (\r2@(RefineDecl n2 _ _) -> n1 /= n2) refs2') refs1
+  return (Type t1 (refs1' ++ refs2'))
 
 preprocess :: TC m => Program -> m Program
 preprocess (Program decls expr) = do
