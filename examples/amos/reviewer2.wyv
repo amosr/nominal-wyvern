@@ -1,0 +1,15 @@
+name List { z =>
+  type Element <= Top
+}
+
+name Integer { z =>
+
+}
+
+name IntList { z =>
+  type Element = Integer
+}
+
+subtype IntList <: List
+
+assert IntList <: List {type Element = Integer }

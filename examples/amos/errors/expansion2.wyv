@@ -1,0 +1,30 @@
+name List { self =>
+  type Element <= Top
+}
+
+name IntList { self =>
+  type Element = Int
+}
+
+subtype IntList <: List
+
+name Sum { self =>
+  type Container <= List { type Element <= Int }
+  def sum(x: self.Container): Int
+}
+
+let sum_intlist =
+  new Sum { type Container = IntList { type Element = Int } } { self =>
+    type Container = IntList
+    def sum(x: self.Container): Int {
+      0
+    }
+  } in
+
+// inferred type is IntList (?)
+let my_intlist =
+  new IntList { self =>
+    type Element = Int
+  } in
+
+sum_intlist.sum(my_intlist)

@@ -1,0 +1,15 @@
+name A { this =>
+  type T >= Bot
+}
+name B { this =>
+  type S <= Top
+  type T = A { type T >= B { type S = B { type S = this.S } } }
+}
+
+subtype B <: A
+
+assert B {type S = Int} <: A {type T >= B {type S = Int}}
+// assert B {type S = Int, type T >= B { type S = B { type S = Int }}} <: A {type T >= B {type S = Int}}
+
+
+// assert B { type S = Top } <: A { type T = A { type T >= B { type S = B { type S = Top }}} }

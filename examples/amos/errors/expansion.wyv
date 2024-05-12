@@ -1,0 +1,57 @@
+name List { self =>
+  type Element <= Top
+}
+
+name IntList { self =>
+  type Element = Int
+}
+
+subtype IntList <: List
+
+name Producer { self =>
+  type Element <= Top
+  type Output <= List { type Element <= self.Element }
+  def produce(): self.Output
+}
+
+name Consumer { self =>
+  type Element >= Bot
+  type Input <= List { type Element <= self.Element }
+  def consume(x: self.Input): Int
+}
+
+name Connector { self =>
+  type Element <= Top
+
+  def connect(p: Producer { type Element >= self.Element, type Output <= List { type Element <= self.Element } }, c: Consumer { type Element >= self.Element, type Input >= p.Output }): Top
+}
+
+let int_connector =
+  new Connector { type Element = Int } { self =>
+    type Element = Int
+    def connect(p: Producer { type Element >= Int, type Output <= List { type Element <= Int }}, c: Consumer { type Element >= self.Element, type Input >= p.Output}): Top {
+      let a = p.produce() in
+      c.consume(a)
+    }
+  } in
+
+let intlist_empty =
+  new IntList { self =>
+    type Element = Int
+  } in
+
+let producer =
+  new Producer { type Element = intlist_empty.Element, type Output = IntList } { self =>
+    type Element = Int
+    type Output = IntList
+    def produce(): self.Output { intlist_empty }
+  } in
+
+let consumer =
+  new Consumer { type Element = Int, type Input = IntList } { self =>
+    type Element = Int
+    type Input = IntList
+    def consume(x: self.Input): Int { 0 }
+  } in
+
+int_connector.connect(producer, consumer)

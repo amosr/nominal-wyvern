@@ -1,0 +1,40 @@
+name Bool { self => }
+
+// A container which can hold anything
+name Container { self =>
+  type Element <= Top
+}
+
+// A container that is specialised to ints
+// Maybe like trees of ints and lists of ints
+name IntContainer { self =>
+  type Element <= Int
+}
+
+// Some arbitrary computation that works on arbitrary container types -- like trees or lists
+name UseContainer { self =>
+  type C <= Container
+  // And it has an operation that is specialised to booleans
+  def take_bools(arg: self.C { type Element = Bool }): Top
+}
+
+// We have a container factory for making special containers
+name Factory { self =>
+  type C <= Container
+}
+
+// Maybe our factory can make lists, but we don't know
+let factory: Factory = undefined in
+let use = new UseContainer { self =>
+    type C = factory.C
+    // Here we use it to accept booleans
+    def take_bools(arg: self.C { type Element = Bool }): Top {
+      arg
+    }
+  } in
+
+// But if we replaced it with a different factory type, then:
+//> let factory: Factory { type C = IntContainer } = undefined in
+// factory.C { type Element = Bool } is no longer valid
+
+0

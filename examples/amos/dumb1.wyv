@@ -1,0 +1,41 @@
+@shape name Shape { self =>
+  type T <= Top
+}
+
+name ShapeRef0 { self =>
+  type S <= Shape
+}
+
+name ShapeRef { self =>
+  @shape type S <= Shape
+}
+
+name ShapeRef2 { self =>
+  type S <= Shape
+}
+
+subtype ShapeRef0 <: ShapeRef
+subtype ShapeRef <: ShapeRef2
+
+name LO { self =>
+  @shape type S = Bot
+  type T <= self.S { type T = self.T }
+}
+
+name HI { self =>
+  type S = Bot
+  type T <= self.S // { type T = self.T }
+}
+
+subtype LO <: HI
+
+let x: Shape       = undefined in
+let sR00: ShapeRef0  = undefined in
+let sR0: ShapeRef0 { type S = sR00.S } = undefined in
+let sR1: ShapeRef  { type S = sR0.S } = sR0 in
+let sR2: ShapeRef2 { type S = sR0.S } = sR1 in
+let lo: LO { type S = sR0.S } = undefined in
+let shap: LO { type T = sR0.S { type T = lo.T } } = undefined in
+let shapX: LO { type T = sR2.S { type T = lo.T } } = shap in
+
+0

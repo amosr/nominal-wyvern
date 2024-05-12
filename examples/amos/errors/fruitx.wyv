@@ -1,0 +1,21 @@
+name Fruit { self =>
+  type EqT = Fruit
+}
+
+name TakesFruit { self =>
+  type T = Fruit
+  def meth(x: Fruit { type EqT = Fruit }): Top
+}
+
+let takes: TakesFruit = undefined in
+let fruit: Fruit = undefined in
+
+// ok (thanks to expansion):
+assert Fruit <: Fruit { type EqT = Fruit { type EqT = Fruit } }
+
+// error: although above assert works, doesn't apply to method calls. maybe easy fix
+// takes.meth(fruit)
+
+// error: takes not in scope for assertion (?)
+// assert takes.T <: takes.T { type EqT = Fruit }
+// 0

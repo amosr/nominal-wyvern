@@ -1,0 +1,33 @@
+name Indirection { self =>
+  type T <= Indirection
+  // def meth(x: self.T): Indirection
+  val field: Indirection
+}
+
+name IndirectionWithField { self =>
+  type T <= IndirectionWithField
+  // def meth(x: self.T): self.field.T
+  val field: self.field.T
+}
+
+subtype IndirectionWithField <: Indirection
+
+/*
+let thing0 =
+  new Indirection { self =>
+    type T = Indirection
+    def go(s: Indirection): s.T {
+      s
+    }
+  } in
+let thing1 =
+  new Indirection { self =>
+    type T = Indirection
+    val what: self.T = thing0
+    def go(s: Indirection): self.T {
+      thing0 // self.what.T
+    }
+  } in
+*/
+0
+

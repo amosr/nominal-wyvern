@@ -1,0 +1,25 @@
+@shape name Shape { self =>
+  type A >= Bot
+  type B <= Top
+}
+
+name T { self =>
+  type A >= self.B
+  type B <= Shape { type A >= self.A, type B >= self.B }
+}
+
+name U { self =>
+  // type A <= self.A { type A <= Shape }
+}
+
+subtype T <: Shape
+
+let x: T = undefined in
+let y: x.A = undefined in
+let z: y.A = undefined in
+let p: x.B = undefined in
+let q: p.A = undefined in
+let r: q.A = undefined in
+
+let zz: z.A = z in
+0

@@ -1,0 +1,33 @@
+name Bool { self =>
+}
+
+name String { self =>
+}
+
+name A { self =>
+  type S <= Top
+  type T = self.S
+}
+
+name Id { self =>
+  def string_id(arg: A { type S = String, type T = Bool }): A { type S = String, type T = Bool }
+}
+
+let self =
+  new A { type S = Bool } { self =>
+    type S = Bool
+    type T = Bool
+  } in
+let other =
+  new A { type S = String } { self =>
+    type S = String
+    type T = String
+  } in
+let id =
+  new Id { self =>
+    def string_id(arg: A { type S = String, type T = Bool }): A { type S = String, type T = Bool } {
+      arg
+    }
+  } in
+
+id.string_id(other)

@@ -128,7 +128,9 @@ newTypeWF ty x defns = do
   mapM_ checkDefn defns
 
 unfold :: TC m => Type -> m (Binding, [MemberDeclaration])
-unfold = typeExpand >=> unfoldExpanded
+unfold t0 = do
+  t1 <- typeExpand t0
+  unfoldExpanded t1
 
 unfoldExpanded :: TC m => Type -> m (Binding, [MemberDeclaration])
 unfoldExpanded (Type base rs) =
@@ -331,11 +333,11 @@ isSubtypeMemDecl a b = case (a, b) of
     | otherwise -> return False
     where
       checkCov = do
-        expanded_ty1 <- expand ty1 ty2
-        isSubtype expanded_ty1 ty2
+        -- expanded_ty1 <- expand ty1 ty2
+        isSubtype ty1 ty2
       checkContra = do
-        expanded_ty2 <- expand ty2 ty1
-        isSubtype expanded_ty2 ty1
+        -- expanded_ty2 <- expand ty2 ty1
+        isSubtype ty2 ty1
   (ValDecl v1 t1, ValDecl v2 t2) ->
     (return $ v1 == v2) &&^ isSubtype t1 t2
   (DefDecl f1 args1 ty1, DefDecl f2 args2 ty2) -> do
@@ -378,6 +380,9 @@ expand ty@(Type t1 _) (Type t2 refs2) = do
   let refs2' = concat final_refs
   -- Keep any refinements from refs1 that aren't overwritten by refs2
   let refs1' = filter (\r1@(RefineDecl n1 _ _) -> all (\r2@(RefineDecl n2 _ _) -> n1 /= n2) refs2') refs1
+  let r = Type t1 (refs1' ++ refs2')
+  traceM ("expand: " ++ show ty)
+  traceM ("===>    " ++ show r)
   return (Type t1 (refs1' ++ refs2'))
 
 preprocess :: TC m => Program -> m Program
