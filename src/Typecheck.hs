@@ -333,6 +333,9 @@ isSubtypeMemDecl a b = case (a, b) of
     | otherwise -> return False
     where
       checkCov = do
+        -- AMOS: disable expansion inside subtyping rules
+        -- Expansion should not occur inside subtyping, as it introduces divergence.
+        -- Instead, only perform expansion before calling subtyping rules
         -- expanded_ty1 <- expand ty1 ty2
         isSubtype ty1 ty2
       checkContra = do
