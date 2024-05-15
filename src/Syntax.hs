@@ -30,14 +30,17 @@ data MemberDefinition
   | DefDefn Name [Arg] Type Expr
 
 data Refinement = RefineDecl Name Bound Type
+  deriving (Eq, Ord)
 
 data Type = Type BaseType [Refinement]
+  deriving (Eq, Ord)
 
 data BaseType
   = TopType
   | BotType
   | NamedType Binding
   | PathType Path Name
+  deriving (Eq, Ord)
 
 data Path
   = Var Binding
@@ -54,4 +57,4 @@ data Expr
   | Assert Bool Type Type
 
 data Bound = LEQ | EQQ | GEQ
-  deriving (Eq)
+  deriving (Eq, Ord)

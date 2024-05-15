@@ -17,6 +17,10 @@ import Syntax
 import Text.Printf
 import TypeUtil
 
+import qualified Typecheck.Exposure as Exposure
+import qualified Typecheck.Lookup as Lookup
+import qualified Typecheck.Subtyping as Subtyping
+
 typecheck prog = runExcept (runReaderT (fullTypecheck prog) emptyCtx)
 
 fullTypecheck :: TC m => Program -> m Type
@@ -127,50 +131,6 @@ newTypeWF ty x defns = do
         ap_self $ isSubtype tau_v' tau_v >>= assertSub (printf "val %s: %s is not a subtype of annotation %s" v (show tau_v') (show tau_v))
   mapM_ checkDefn defns
 
-unfold :: TC m => Type -> m (Binding, [MemberDeclaration])
-unfold t0 = do
-  t1 <- typeExpand t0
-  unfoldExpanded t1
-
-unfoldExpanded :: TC m => Type -> m (Binding, [MemberDeclaration])
-unfoldExpanded (Type base rs) =
-  case base of
-    NamedType n -> do
-      NameDecl _ _ z decls <- lookupTLDecls pred msg
-      -- Shadowing: only take the declarations from type that are not
-      -- overwritten by the refinement.
-      let decls' = filter noshadow decls
-      return (z, map refToDecl rs ++ decls')
-      where
-        pred (NameDecl _ n' _ _) = n == n'
-        pred _ = False
-
-        noshadow (TypeMemDecl _ t _ _) =
-          all (notnamed t) rs
-        noshadow _ = True
-
-        notnamed t (RefineDecl t' _ _) =
-          t /= t'
-
-
-        msg = printf "couldn't find name %s" (show n)
-    _ -> return (Binding "z" (-1), map refToDecl rs)
-
-typeExpand :: TC m => Type -> m Type
-typeExpand tau@(Type base rs) = case base of
-  PathType p t -> do
-    tau_p <- typecheckPath p
-    (z, decls) <- unfold tau_p
-    TypeMemDecl _ _ bound ty <- lookupMemberDecls pred errMsg decls
-    case bound of
-      GEQ -> return tau
-      _ -> typeExpand (subst p z (merge ty rs))
-    where
-      pred (TypeMemDecl _ t' _ _) = t == t'
-      pred _ = False
-      errMsg = printf "type expand: couldn't find type member %s in path %s" t (show p)
-  _ -> return tau
-
 typecheckExpr :: TC m => Expr -> m Type
 typecheckExpr e = case e of
   PathExpr p -> typecheckPath p
@@ -216,19 +176,6 @@ typecheckExpr e = case e of
     liftM not (isSubtype t1 t2)
       >>= assertSub (printf "assertion: '%s </: %s' failed" (show t1) (show t2))
     return theTop
-
-typecheckPath :: TC m => Path -> m Type
-typecheckPath p = case p of
-  Var b -> lookupGamma b
-  Field p v -> do
-    tau <- typecheckPath p
-    (z, decls) <- unfold tau
-    ValDecl _ tauv <- lookupMemberDecls pred errMsg decls
-    return $ subst p z tauv
-    where
-      pred (ValDecl b _) = b == v
-      pred _ = False
-      errMsg = ("failed to find field " ++ v)
 
 --type equality
 equalBaseType :: TC m => BaseType -> BaseType -> m Bool
@@ -375,7 +322,7 @@ expand ty@(Type t1 _) (Type t2 refs2) = do
             Just (RefineDecl n1 b1 t1') -> do
               res <- expand t1' t2'
               return [RefineDecl n1 b1 res]
-            -- XXX: why is this a failure? `Bot <: n { t = tau }` should succeed, but failing here?
+            -- AMOS: why is this a failure? `Bot <: n { t = tau }` should succeed, but failing here?
             Nothing -> return []
             -- Nothing -> fail ("expand: this program doesn't type: unknown type " ++ show (n2, memberDecls) ++ "\nty: " ++ (show ty) ++ "\nty2: " ++ (show (Type t2 refs2)))
       )
@@ -408,4 +355,6 @@ preprocessExpr expr = case expr of
   UndefLit -> return expr
   Assert b ty ty' -> do
     expanded_ty <- expand ty ty'
+    -- AMOS: should this expand both sides?
+    -- expanded_ty' <- expand ty' ty
     return (Assert b expanded_ty ty')

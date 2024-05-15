@@ -19,7 +19,7 @@ common common-settings
 
 library
   import: common-settings
-  exposed-modules:       Binding, Parser, PrettyPrint, RawSyntax, Syntax, TypeGraph, TypeUtil, Typecheck
+  exposed-modules:       Binding, Parser, PrettyPrint, RawSyntax, Syntax, TypeGraph, TypeUtil, Typecheck, Typecheck.Exposure, Typecheck.Lookup, Typecheck.Subtyping
   other-extensions:    DeriveDataTypeable
   build-depends:       base
                      , cmdargs

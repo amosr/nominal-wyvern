@@ -19,22 +19,28 @@ instance MonadFail Data.Functor.Identity.Identity where
 
 data CheckSubtype = On | Off
 
+data Extensions = Extensions {
+  -- allowMultiPath :: Bool,
+  doExpansion :: Bool
+}
+
 data Context = Context
   { toplevel :: [TopLevelDeclaration],
     gamma :: [(Binding, Type)],
-    isCheck :: CheckSubtype
+    isCheck :: CheckSubtype,
+    extensions :: Extensions
   }
 
-emptyCtx = Context [] [] On
+emptyCtx = Context [] [] On (Extensions False)
 
 appendTopLevel :: [TopLevelDeclaration] -> Context -> Context
-appendTopLevel ds (Context t g c) = Context (ds ++ t) g c
+appendTopLevel ds (Context t g c e) = Context (ds ++ t) g c e
 
 appendGamma :: [(Binding, Type)] -> Context -> Context
-appendGamma ds (Context t g c) = Context t (ds ++ g) c
+appendGamma ds (Context t g c e) = Context t (ds ++ g) c e
 
 turnSubtypingOff :: Context -> Context
-turnSubtypingOff (Context t g _) = Context t g Off
+turnSubtypingOff (Context t g _ e) = Context t g Off e
 
 type TC m = (MonadReader Context m, MonadError String m, MonadFail m)
 
@@ -49,11 +55,8 @@ assertSub err b = do
     On -> assert err b
     Off -> return ()
 
-lookupMemberDecls :: TC m => (MemberDeclaration -> Bool) -> String -> [MemberDeclaration] -> m MemberDeclaration
-lookupMemberDecls pred msg list =
-  case find pred list of
-    Just x -> return x
-    Nothing -> throwError msg
+withErrorContext :: TC m => String -> m a -> m a
+withErrorContext ctx act = catchError act (\err -> throwError (ctx ++ "\n" ++ err))
 
 lookupGamma :: TC m => Binding -> m Type
 lookupGamma v = do
@@ -151,6 +154,7 @@ instance Substitute MemberDeclaration where
   subst p x d = case d of
     TypeMemDecl ta b bound ty -> TypeMemDecl ta b bound (subst p x ty)
     ValDecl b ty -> ValDecl b (subst p x ty)
+    -- XXX: does this need to perform **capture-avoiding** substitution, as args are binders?
     DefDecl b args retTy -> DefDecl b (map (\(Arg bi t) -> Arg bi (subst p x t)) args) (subst p x retTy)
 
 instance Substitute Refinement where
