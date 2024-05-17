@@ -14,8 +14,8 @@ indent s = "  " ++ f s
           | otherwise = x:f xs
 
 instance Show Binding where
-  show (Binding b t) = b
-  --show (Binding b t) = printf "(%s,%s)" b (show t)
+  -- show (Binding b t) = b
+  show (Binding b t) = printf "%s$%s" b (show t)
 
 instance Show Arg where
   show (Arg b ty) = (show b) ++ ":" ++ (show ty)

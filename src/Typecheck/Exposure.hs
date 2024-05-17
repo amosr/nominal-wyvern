@@ -30,40 +30,42 @@ exposure tau@(Type base rs) = case base of
   -- Rule Exp-Name
   NamedType _ -> return tau
   -- Rules Exp-Upper, Exp-Otherwise
-  PathType p@(Var b) t ->
-    exposePath1 (\b -> b == LEQ || b == EQQ) rs b t
+  PathType p@(Var b) t -> do
+    tau' <- exposePath1 (\b -> b == LEQ || b == EQQ) rs b t
+    return (fromMaybe tau tau')
 
   PathType p t ->
     throwError "exposure: multi-length paths not supported"
 
-exposePath1 :: TC m => (Bound -> Bool) -> [Refinement] -> Binding -> Name -> m Type
-exposePath1 checkBounds rs b t = do
+exposePath1 :: TC m => (Bound -> Bool) -> [Refinement] -> Binding -> Name -> m (Maybe Type)
+exposePath1 checkBounds rs b t = withTrace ("exposePath1: " ++ show (rs,b,t)) $ do
   taup  <- Lookup.typecheckPathSingleton (Var b)
   taup' <- exposure taup
   -- XXX TODO avoid catch here as it might silence real errors
   catchError (do
     TypeMemDecl _ _ b taut <- Lookup.lookupTypeMemDecl t taup' b
-    assert "" (checkBounds b)
+    assert "expose" (checkBounds b)
     tau' <- exposure taut
-    return (merge tau' rs))
-    (\e -> return (Type (PathType (Var b) t) rs))
+    return (Just (merge tau' rs)))
+    (\e -> return Nothing)
 
 
-upcast :: TC m => Type -> m Type
+-- XXX: paper wrong: upcast and downcast should be partial
+upcast :: TC m => Type -> m (Maybe Type)
 upcast tau@(Type base rs) = case base of
   -- Rules Uc-Upper, Uc-Otherwise(1)
   PathType p@(Var b) t ->
     exposePath1 (\b -> b == LEQ || b == EQQ) rs b t
   -- Rule Uc-Otherwise(2)
-  _ -> return tau
+  _ -> return Nothing
 
-downcast :: TC m => Type -> m Type
+downcast :: TC m => Type -> m (Maybe Type)
 downcast tau@(Type base rs) = case base of
   -- Rules Dc-Upper, Dc-Otherwise(1)
   PathType p@(Var b) t ->
     exposePath1 (\b -> b == GEQ || b == EQQ) rs b t
   -- Rule Dc-Otherwise(2)
-  _ -> return tau
+  _ -> return Nothing
 
 
 -- unfold :: TC m => Type -> m (Binding, [MemberDeclaration])

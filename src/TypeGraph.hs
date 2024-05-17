@@ -11,7 +11,8 @@ import Syntax
 import PrettyPrint()
 import TypeUtil
 import Debug.Trace
-import Typecheck (typecheckPath, typecheckExpr)
+import Typecheck.Lookup (typecheckPathSingleton)
+import Typecheck.Check (typecheckExpr)
 
 --For clarity, PTypes are the nodes in the type graph
 --They are like base types, but all path types/type members are given "absolute paths",
@@ -51,7 +52,7 @@ getPType b = do
           BotType      -> return PBot
           NamedType n  -> return (PVar n)
           PathType p t -> do
-            Type b' _ <- typecheckPath p
+            Type b' _ <- typecheckPathSingleton p
             pt <- convert b'
             return (PPath pt t)
 
@@ -75,7 +76,7 @@ getGraph prog@(Program decls expr) = runExcept (
                   runReaderT (
                     runReaderT (
                       execWriterT (buildGraph prog)
-                    ) (Context decls [] Off)
+                    ) (turnSubtypingOff $ appendTopLevel decls emptyCtx)
                   ) (Map.fromList (execWriter (mapTAs decls)))
                 )
 

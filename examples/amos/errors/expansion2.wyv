@@ -15,15 +15,15 @@ name Sum { self =>
 
 let sum_intlist =
   new Sum { type Container = IntList { type Element = Int } } { self =>
-    type Container = IntList
+    type Container = IntList { type Element = Int }
     def sum(x: self.Container): Int {
       0
     }
   } in
 
-// inferred type is IntList (?)
+// inferred type is IntList, unless explicitly expanded:
 let my_intlist =
-  new IntList { self =>
+  new IntList { type Element = Int } { self =>
     type Element = Int
   } in
 

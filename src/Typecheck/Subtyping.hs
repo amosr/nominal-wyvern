@@ -32,9 +32,10 @@ isSubtype (Type BotType []) _ = return True
 -- Rule S-Refine
 isSubtype (Type b1 r1) (Type b2 r2)
   | b1 == b2
-  = isSubtypeRefines r1 r2
+  = withTrace ("S-Refine: " ++ show (b1,r1,r2)) $
+    isSubtypeRefines r1 r2
 -- Rule S-NameUp
-isSubtype (Type (NamedType n) r) (Type (NamedType n') r') =
+isSubtype (Type (NamedType n) r) (Type (NamedType n') r') = withTrace ("S-NameUp: " ++ show (n,r,n',r')) $
   -- Try all declared subtypes; success if any succeed
   searchTLDecls
     (\case
@@ -46,13 +47,17 @@ isSubtype (Type (NamedType n) r) (Type (NamedType n') r') =
     )
   -- Find all supertypes
 -- Rule S-Lower
-isSubtype tau0@(Type (PathType _ _) _) tau' = do
+isSubtype tau0@(Type (PathType _ _) _) tau' = withTrace ("S-Lower: " ++ show (tau0, tau')) $ do
   tau <- Exposure.upcast tau0
-  isSubtype tau tau'
+  case tau of
+    Just tau -> isSubtype tau tau'
+    Nothing -> return False
 -- Rule S-Upper
-isSubtype tau tau0'@(Type (PathType _ _) _) = do
+isSubtype tau tau0'@(Type (PathType _ _) _) = withTrace ("S-Upper: " ++ show (tau, tau0')) $ do
   tau' <- Exposure.downcast tau0'
-  isSubtype tau tau'
+  case tau' of
+    Just tau' -> isSubtype tau tau'
+    Nothing -> return False
 
 -- Figure 10, subtyping relation `type t B \tau <: type t B \tau`
 -- This is subtyping on type members in the paper
@@ -72,6 +77,8 @@ isSubtypeRefinementMember (RefineDecl t EQQ tau) (RefineDecl t' GEQ tau') =
 --      S-T-Ge(2)
 isSubtypeRefinementMember (RefineDecl t GEQ tau) (RefineDecl t' GEQ tau') =
   isSubtype tau' tau
+-- Otherwise
+isSubtypeRefinementMember _ _ = return False
 
 -- Figure 10, subtyping on refinements
 isSubtypeRefines :: TC m => [Refinement] -> [Refinement] -> m Bool
@@ -83,3 +90,34 @@ isSubtypeRefines lhs (r : rhs) =
   case find (matchRef r) lhs of
     Just l -> isSubtypeRefinementMember l r &&^ isSubtypeRefines lhs rhs
     Nothing -> return False
+
+-- Figure 11, top-level member declaration
+-- isSubtypeMemberDeclaration :: TC m => MemberDeclaration -> MemberDeclaration
+
+-- Figure 11, top-level member declaration
+isSubtypeMemDecls :: TC m => [MemberDeclaration] -> [MemberDeclaration] -> m Bool
+-- Rule S-Top-Nil
+isSubtypeMemDecls _ [] = return True
+-- Rule S-Top-Type
+isSubtypeMemDecls s1 (TypeMemDecl _ t b2 tau2 : s2) =
+  case find (matchTypeMemDecl t) s1 of
+    Just (TypeMemDecl _ _ b1 tau1) ->
+      isSubtypeRefinementMember (RefineDecl t b1 tau1) (RefineDecl t b2 tau2) &&^
+      isSubtypeMemDecls s1 s2
+    _ -> return False
+-- Rule S-Top-Field
+isSubtypeMemDecls s1 (ValDecl v tau2 : s2) =
+  case find (matchValDecl v) s1 of
+    Just (ValDecl _ tau1) ->
+      isSubtype tau1 tau2 &&^
+      isSubtypeMemDecls s1 s2
+    _ -> return False
+-- Rule S-Top-Method
+isSubtypeMemDecls s1 (DefDecl f arg2 ret2 : s2) =
+  case find (matchDefDecl f) s1 of
+    Just (DefDecl _ arg1 ret1) ->
+      isSubtype ret1 ret2 &&^
+      allM (\(a1,a2) -> isSubtype (argType a2) (argType a1)) (arg1 `zip` arg2) &&^
+      isSubtypeMemDecls s1 s2
+    _ -> return False
+

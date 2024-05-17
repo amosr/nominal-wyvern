@@ -21,31 +21,47 @@ data CheckSubtype = On | Off
 
 data Extensions = Extensions {
   -- allowMultiPath :: Bool,
-  doExpansion :: Bool
+  doExpansion :: Bool,
+  doTrace :: Bool
 }
 
 data Context = Context
   { toplevel :: [TopLevelDeclaration],
     gamma :: [(Binding, Type)],
+    locallyFreshSupply :: Int,
     isCheck :: CheckSubtype,
     extensions :: Extensions
   }
 
-emptyCtx = Context [] [] On (Extensions False)
+emptyCtx = Context [] [] 0 On (Extensions False True)
 
 appendTopLevel :: [TopLevelDeclaration] -> Context -> Context
-appendTopLevel ds (Context t g c e) = Context (ds ++ t) g c e
+appendTopLevel ds (Context t g f c e) = Context (ds ++ t) g f c e
 
 appendGamma :: [(Binding, Type)] -> Context -> Context
-appendGamma ds (Context t g c e) = Context t (ds ++ g) c e
+appendGamma ds (Context t g f c e) = Context t (ds ++ g) f c e
+
+locallyFresh' :: Type -> Context -> (Context, Binding)
+locallyFresh' tau (Context t g f c e) =
+  -- XXX: does this need to be globally unique?
+  let b = Binding "^fresh" f in
+  (Context t g (f + 1) c e, b)
+
+locallyFresh :: TC m => Type -> (Binding -> m a) -> m a
+locallyFresh tau act = do
+  c <- ask
+  let (c',b) = locallyFresh' tau c
+  local (const c') (act b)
 
 turnSubtypingOff :: Context -> Context
-turnSubtypingOff (Context t g _ e) = Context t g Off e
+turnSubtypingOff (Context t g f _ e) = Context t g f Off e
 
 type TC m = (MonadReader Context m, MonadError String m, MonadFail m)
 
 assert :: TC m => String -> Bool -> m ()
-assert _ True = return ()
+assert err True = do
+  ctx <- ask
+  when (doTrace (extensions ctx)) $ traceM ("(trace) assertion ok: " ++ err)
 assert err False = throwError err
 
 assertSub :: TC m => String -> Bool -> m ()
@@ -53,17 +69,31 @@ assertSub err b = do
   ctx <- ask
   case (isCheck ctx) of
     On -> assert err b
-    Off -> return ()
+    Off ->
+      when (doTrace (extensions ctx)) $ traceM ("(trace) ignoring subtype assertion: " ++ err)
+
+withTrace :: TC m => String -> m a -> m a
+withTrace ctx act = do
+  c <- ask
+  when (doTrace (extensions c)) $ traceM ("(trace) " ++ ctx ++ "{")
+  r <- act
+  when (doTrace (extensions c)) $ traceM "(trace) }"
+  return r
 
 withErrorContext :: TC m => String -> m a -> m a
-withErrorContext ctx act = catchError act (\err -> throwError (ctx ++ "\n" ++ err))
+withErrorContext ctx act =
+  catchError act' (\err -> throwError ("    " ++ ctx ++ "\n" ++ err))
+ where
+  act' = withTrace ctx act
 
 lookupGamma :: TC m => Binding -> m Type
 lookupGamma v = do
-  search <- reader (lookup v . gamma)
-  case search of
+  g <- reader gamma
+  case lookup v g of
     Just x -> return x
-    Nothing -> throwError (printf "failed to lookup variable %s" (show v))
+    Nothing ->
+      let err = printf "no such variable: %s\ncontext: %s" (show v) (show g) in
+      throwError err
 
 lookupTLDecls :: TC m => (TopLevelDeclaration -> Bool) -> String -> m TopLevelDeclaration
 lookupTLDecls pred msg = do
@@ -73,6 +103,14 @@ lookupTLDecls pred msg = do
   case search of
     Just x -> return x
     Nothing -> throwError msg
+
+lookupNameDecl :: TC m => Binding -> m TopLevelDeclaration
+lookupNameDecl n =
+  lookupTLDecls find_name msg
+ where
+  find_name (NameDecl _ n' _ _) = n == n'
+  find_name _ = False
+  msg = printf "no such top-level named type: `%s`" (show n)
 
 searchTLDecls :: TC m => (TopLevelDeclaration -> m Bool) -> m Bool
 searchTLDecls pred = do
@@ -95,6 +133,20 @@ argToTup (Arg v ty) = (v, ty)
 refToDecl :: Refinement -> MemberDeclaration
 refToDecl (RefineDecl t bound ty) = TypeMemDecl Material t bound ty
 
+matchTypeMemDecl :: Name -> MemberDeclaration -> Bool
+matchTypeMemDecl t1 (TypeMemDecl _ t2 _ _) = t1 == t2
+matchTypeMemDecl t1 _ = False
+
+matchValDecl :: Name -> MemberDeclaration -> Bool
+matchValDecl t1 (ValDecl t2 _) = t1 == t2
+matchValDecl t1 _ = False
+
+matchDefDecl :: Name -> MemberDeclaration -> Bool
+matchDefDecl t1 (DefDecl t2 _ _) = t1 == t2
+matchDefDecl t1 _ = False
+
+
+
 matchRef :: Refinement -> Refinement -> Bool
 matchRef (RefineDecl t1 _ _) (RefineDecl t2 _ _) = t1 == t2
 
@@ -106,6 +158,13 @@ mergeRefs new old = new ++ old'
 
 merge :: Type -> [Refinement] -> Type
 merge (Type base rs) rs' = Type base (mergeRefs rs' rs)
+
+mergeDecls :: [MemberDeclaration] -> [MemberDeclaration] -> [MemberDeclaration]
+mergeDecls new old = new ++ old'
+  where
+    old' = filter search old
+    search (TypeMemDecl _ t _ _) = isNothing $ find (matchTypeMemDecl t) new
+    search _ = True
 
 --turn definitions into member declarations
 sig :: [MemberDefinition] -> [MemberDeclaration]

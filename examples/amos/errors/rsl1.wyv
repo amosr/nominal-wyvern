@@ -17,9 +17,9 @@ subtype T <: Shape
 let x: T = undefined in
 let y: x.A = undefined in
 let z: y.A = undefined in
-let p: x.B = undefined in
-let q: p.A = undefined in
-let r: q.A = undefined in
-
+// let p: x.B = undefined in
+// let q: p.A = undefined in
+// let r: q.A = undefined in
+// 
 let zz: z.A = z in
 0

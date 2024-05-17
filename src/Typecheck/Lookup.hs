@@ -26,12 +26,9 @@ lookupMemberDecl pred err (Type base rs) self_new
    return r
  -- Rule Look-Name
  | NamedType n <- base = do
-  let find_name (NameDecl _ n' _ _) = n == n'
-      find_name _ = False
-      msg = printf "couldn't find name %s" (show n)
-  NameDecl _ _ self_old decls <- lookupTLDecls find_name msg
+  NameDecl _ _ self_old decls <- lookupNameDecl n
   case find pred decls of
-    Just d -> return $ subst (Var self_old) self_new d
+    Just d -> return $ subst (Var self_new) self_old d
     Nothing -> throwError err
  -- Fail
  | otherwise =
