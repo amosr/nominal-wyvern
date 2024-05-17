@@ -37,7 +37,7 @@ typecheckExpr (Let x ta ex e) = do
     Nothing -> return taux
   local (appendGamma [(x, taux)]) $ typecheckExpr e
  where
-  msg t1 t2 = printf "type annotation on let: %s not a subtype of %s\nlet-expression %s" (show t1) (show t2) (show ex)
+  msg t1 t2 = printf "type annotation on let: %s not a subtype of %s\nlet-expression %s = %s" (show t1) (show t2) (show x) (show ex)
 -- Rule T-Sel
 typecheckExpr (PathExpr (Field (Var p) t)) = do
   tau  <- Lookup.typecheckPathSingleton (Var p)
@@ -72,6 +72,9 @@ typecheckExpr (Call (Var p) f args) =
     substParams [] taur = taur
     substParams ((arg,param) : ps) taur =
         substParams ps (subst arg (argName param) taur)
+typecheckExpr e@(Call pp f args) =
+  -- We can't do method calls with long paths in general...
+  throwError ("not supported: target for method call must be variable (A-normal form): " ++ show e)
 
 -- Rule T-New
 typecheckExpr (New tau self defs) = withErrorContext ("in new expression of type " ++ show tau) $ do
@@ -108,7 +111,7 @@ typecheckNew tau self defs = do
     -- than any fundamental reason.
     tauv' <- typecheckExpr ev
     ok <- Subtyping.isSubtype tauv' tauv
-    assertSub (printf "field definition `%s` is not subtype of declared type\nexpression: %s\nhas type: %s\nexpected type: %s" v (show tauv') (show tauv)) ok
+    assertSub (printf "field definition `%s` is not subtype of declared type\nexpression: %s\nhas type: %s\nexpected type: %s" v (show ev) (show tauv') (show tauv)) ok
   checkDef (DefDefn f args taur er) = do
     -- TODO: where do we check wellformedness of arg types?
     let binds = map (\a -> (argName a, argType a)) args

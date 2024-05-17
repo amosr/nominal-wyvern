@@ -45,7 +45,7 @@ locallyFresh' :: Type -> Context -> (Context, Binding)
 locallyFresh' tau (Context t g f c e) =
   -- XXX: does this need to be globally unique?
   let b = Binding "^fresh" f in
-  (Context t g (f + 1) c e, b)
+  (Context t ((b,tau) : g) (f + 1) c e, b)
 
 locallyFresh :: TC m => Type -> (Binding -> m a) -> m a
 locallyFresh tau act = do
