@@ -31,7 +31,6 @@ tryExpandLhs :: TC m => Type -> Type -> m Type
 tryExpandLhs t1 t2 = do
   e <- reader (doExpansion . extensions)
   v <- if e then expandLhs t1 t2 else return t1
-  traceM ("expand: " ++ show (t1, t2, v))
   return v
 
 expandLhs :: TC m => Type -> Type -> m Type
@@ -52,7 +51,6 @@ expandLhsR r@(RefineDecl n b tau) rs = do
 
 unfold1 :: TC m => Type -> [Refinement] -> m Type
 unfold1 (Type (NamedType n) r) rs = do
-  -- traceM ("unfold1: " ++ show (n,r,rs))
   NameDecl _ _ self fields <- lookupNameDecl n
   let r' = concatMap (takeField self) fields
   return (Type (NamedType n) (mergeRefs r r'))
@@ -67,9 +65,10 @@ unfold1 tau@(Type (PathType p t) r) rs = do
     Type (NamedType n) r -> do
       Type _ r' <- unfold1 tau' rs
       -- It's tempting to return the above unfolding as-is, but for a subtyping judgment
-      -- p.t <: p.t { }
-      -- we do not want to unfold p.t on the left-hand-side, as it might get stuck
-      -- traceM ("unfold1-rebox: " ++ show (p,t,r,r',rs))
+      --   p.t <: p.t
+      -- we do not want to unfold p.t on the left-hand-side -- it might make
+      -- the judgment un-derivable.
+      -- Instead, apply the refinements we find to the original path
       return (Type (PathType p t) r')
 
     _ -> return tau

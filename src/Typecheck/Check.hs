@@ -40,42 +40,48 @@ typecheckExpr (Let x ta ex e) = do
  where
   msg t1 t2 = printf "type annotation on let: %s not a subtype of %s\nlet-expression %s = %s" (show t1) (show t2) (show x) (show ex)
 -- Rule T-Sel
-typecheckExpr (PathExpr (Field (Var p) t)) = do
-  tau  <- Lookup.typecheckPathSingleton (Var p)
+typecheckExpr (PathExpr (Field p t)) = do
+  tau  <- Lookup.typecheckPathSingleton p
   tau' <- Exposure.exposure tau
   -- Slight change from paper: tau' doesn't actually need to be a name 'n'
   ValDecl _ tauv <- Lookup.lookupValDecl t tau' p
   return tauv
--- Multi-length paths not allowed
-typecheckExpr e@(PathExpr (Field _ _)) = throwError ("not supported: multi-length paths: " ++ show e)
 
 -- Rule T-App
-typecheckExpr (Call (Var p) f args) =
+typecheckExpr (Call p f args) =
   withErrorContext (printf "in method call %s.%s" (show p) f) $ do
-    tau  <- Lookup.typecheckPathSingleton (Var p)
+    tau  <- Lookup.typecheckPathSingleton p
     tau' <- Exposure.exposure tau
     DefDecl _ params taur <- Lookup.lookupDefDecl f tau' p
     assert (printf "Wrong number of arguments: got %d, expected %d" (length args) (length params))
       (length args == length params)
-    mapM_ checkArg (args `zip` params)
-    let taur' = substParams (args `zip` params) taur
-    -- traceM (printf "tau: %s\ntau': %s\ntaur: %s\ntaur': %s\nsubst: %s\nself: %s" (show tau) (show tau') (show taur) (show taur') (show (args `zip` params)) (show p))
-    return taur'
+    -- TODO: EXTENSION: check p: p must be var unless p is not mentioned in type
+    let aps = args `zip` params
+    goArgs aps taur
+    -- mapM_ checkArg (args `zip` params)
+    -- let taur' = substParams (args `zip` params) taur
+    -- return taur'
   where
-    checkArg (arg,param) = do
+    goArgs [] taur = return taur
+    goArgs ((arg,param) : rest) taur = do
       taua <- Lookup.typecheckPathSingleton arg
-      -- TODO: expressivity: we should substitute into param types before checking. this isn't required for paper as paper only supports single-argument methods
       ok <- Expansion.expandCheckSubtype taua (argType param)
       assertSub
         (printf "Parameter %s instantiated to %s\n  Expected type %s; got %s" (show (argName param)) (show arg) (show (argType param)) (show taua))
         ok
+      -- EXTENSION
+      -- Change from paper: parameter types can refer to the types of previous
+      -- parameters, so we substitute this argument into the remaining
+      -- parameter types.
+      -- This isn't required in the paper, as the paper only supports methods
+      -- with a single parameter.
+      let rest' = substParams arg (argName param) rest
+      let taur' = subst arg (argName param) taur
+      goArgs rest' taur'
 
-    substParams [] taur = taur
-    substParams ((arg,param) : ps) taur =
-        substParams ps (subst arg (argName param) taur)
-typecheckExpr e@(Call pp f args) =
-  -- We can't do method calls with long paths in general...
-  throwError ("not supported: target for method call must be variable (A-normal form): " ++ show e)
+    substParams _ _ [] = []
+    substParams arg nm ((argx,paramx) : rest) =
+      (argx, Arg (argName paramx) (subst arg nm (argType paramx))) : substParams arg nm rest
 
 -- Rule T-New
 typecheckExpr (New tau self defs) = withErrorContext ("in new expression of type " ++ show tau) $ do
@@ -144,11 +150,11 @@ assertTypeValid tau0@(Type b rb) =
   withErrorContext ("in type validity " ++ show tau0) $
   locallyFresh tau0 (\self -> do
     tauu <- Exposure.exposure (Type b [])
-    mapM_ (check self tauu) rb)
+    mapM_ (check (Var self) tauu) rb)
   where
     check self tauu r@(RefineDecl t b tau) = do
       mem@(TypeMemDecl _ _ b' tau') <- Lookup.lookupTypeMemDecl t tauu self
-      -- TODO: is this expansion correct?
+      -- TODO: is this expansion correct even for >= members?
       tauX <- Expansion.tryExpandLhs tau tau'
       ok <- Subtyping.isSubtypeRefinementMember (RefineDecl t b tauX) (RefineDecl t b' tau')
       assertSub (printf "type refinement not subtype\n  refinement: %s\n  class member: %s" (show r) (show mem)) ok

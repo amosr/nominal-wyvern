@@ -180,6 +180,7 @@ bindExpr e = case e of
     t2' <- bindType t2
     return $ Assert b t1' t2'
 
+-- TODO: convert to ANF to avoid multi-length paths
 bindPath :: Raw.Path -> BindMonad Path
 bindPath p = case p of
   Raw.Var v -> do

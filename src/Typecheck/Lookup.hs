@@ -19,7 +19,7 @@ import Text.Printf
 import TypeUtil
 
 -- | Figure 7, Declaration Lookup
-lookupMemberDecl :: TC m => (MemberDeclaration -> Bool) -> String -> Type -> Binding -> m MemberDeclaration
+lookupMemberDecl :: TC m => (MemberDeclaration -> Bool) -> String -> Type -> Path -> m MemberDeclaration
 lookupMemberDecl pred err (Type base rs) self_new
  -- Rule Look-Refine
  | Just r <- find pred (map refToDecl rs) =
@@ -28,13 +28,13 @@ lookupMemberDecl pred err (Type base rs) self_new
  | NamedType n <- base = do
   NameDecl _ _ self_old decls <- lookupNameDecl n
   case find pred decls of
-    Just d -> return $ subst (Var self_new) self_old d
+    Just d -> return $ subst self_new self_old d
     Nothing -> throwError err
  -- Fail
  | otherwise =
   throwError err
 
-lookupValDecl :: (MonadReader Context m, MonadError String m, MonadFail m) => Name -> Type -> Binding -> m MemberDeclaration
+lookupValDecl :: (MonadReader Context m, MonadError String m, MonadFail m) => Name -> Type -> Path -> m MemberDeclaration
 lookupValDecl field ty = lookupMemberDecl pred msg ty
  where
   pred (ValDecl field' _) = field == field'
@@ -42,7 +42,7 @@ lookupValDecl field ty = lookupMemberDecl pred msg ty
 
   msg = printf "couldn't find field named %s in type %s" (show field) (show ty)
 
-lookupTypeMemDecl :: (MonadReader Context m, MonadError String m, MonadFail m) => Name -> Type -> Binding -> m MemberDeclaration
+lookupTypeMemDecl :: (MonadReader Context m, MonadError String m, MonadFail m) => Name -> Type -> Path -> m MemberDeclaration
 lookupTypeMemDecl field ty = lookupMemberDecl pred msg ty
  where
   pred (TypeMemDecl _ field' _ _) = field == field'
@@ -50,7 +50,7 @@ lookupTypeMemDecl field ty = lookupMemberDecl pred msg ty
 
   msg = printf "couldn't find type member named %s in type %s" (show field) (show ty)
 
-lookupDefDecl :: (MonadReader Context m, MonadError String m, MonadFail m) => Name -> Type -> Binding -> m MemberDeclaration
+lookupDefDecl :: (MonadReader Context m, MonadError String m, MonadFail m) => Name -> Type -> Path -> m MemberDeclaration
 lookupDefDecl field ty = lookupMemberDecl pred msg ty
  where
   pred (DefDecl field' _ _) = field == field'

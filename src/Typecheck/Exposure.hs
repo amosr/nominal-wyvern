@@ -30,23 +30,19 @@ exposure tau@(Type base rs) = case base of
   -- Rule Exp-Name
   NamedType _ -> return tau
   -- Rules Exp-Upper, Exp-Otherwise
-  PathType p@(Var b) t -> do
-    tau' <- exposePath1 (\b -> b == LEQ || b == EQQ) rs b t
+  PathType p t -> do
+    tau' <- exposePath1 (\b -> b == LEQ || b == EQQ) rs p t
     case tau' of
       Just tau' -> exposure tau'
       Nothing -> return tau
-    -- return (fromMaybe tau tau')
 
-  PathType p t ->
-    throwError "exposure: multi-length paths not supported"
-
-exposePath1 :: TC m => (Bound -> Bool) -> [Refinement] -> Binding -> Name -> m (Maybe Type)
-exposePath1 checkBounds rs b t = withTrace ("exposePath1: " ++ show (rs,b,t)) $ do
-  taup  <- Lookup.typecheckPathSingleton (Var b)
+exposePath1 :: TC m => (Bound -> Bool) -> [Refinement] -> Path -> Name -> m (Maybe Type)
+exposePath1 checkBounds rs p t = withTrace ("exposePath1: " ++ show (rs,p,t)) $ do
+  taup  <- Lookup.typecheckPathSingleton p
   taup' <- exposure taup
   -- XXX TODO avoid catch here as it might silence real errors
   catchError (do
-    TypeMemDecl _ _ b taut <- Lookup.lookupTypeMemDecl t taup' b
+    TypeMemDecl _ _ b taut <- Lookup.lookupTypeMemDecl t taup' p
     assert ("expose: " ++ show (b,taut)) (checkBounds b)
     return (Just (merge taut rs)))
     (\e -> return Nothing)
@@ -56,16 +52,16 @@ exposePath1 checkBounds rs b t = withTrace ("exposePath1: " ++ show (rs,b,t)) $ 
 upcast :: TC m => Type -> m (Maybe Type)
 upcast tau@(Type base rs) = case base of
   -- Rules Uc-Upper, Uc-Otherwise(1)
-  PathType p@(Var b) t ->
-    exposePath1 (\b -> b == LEQ || b == EQQ) rs b t
+  PathType p t ->
+    exposePath1 (\b -> b == LEQ || b == EQQ) rs p t
   -- Rule Uc-Otherwise(2)
   _ -> return Nothing
 
 downcast :: TC m => Type -> m (Maybe Type)
 downcast tau@(Type base rs) = case base of
   -- Rules Dc-Upper, Dc-Otherwise(1)
-  PathType p@(Var b) t ->
-    exposePath1 (\b -> b == GEQ || b == EQQ) rs b t
+  PathType p t ->
+    exposePath1 (\b -> b == GEQ || b == EQQ) rs p t
   -- Rule Dc-Otherwise(2)
   _ -> return Nothing
 
