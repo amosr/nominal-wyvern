@@ -213,11 +213,30 @@ instance Substitute MemberDeclaration where
   subst p x d = case d of
     TypeMemDecl ta b bound ty -> TypeMemDecl ta b bound (subst p x ty)
     ValDecl b ty -> ValDecl b (subst p x ty)
-    -- XXX: does this need to perform **capture-avoiding** substitution, as args are binders?
     DefDecl b args retTy -> DefDecl b (map (\(Arg bi t) -> Arg bi (subst p x t)) args) (subst p x retTy)
+
+instance Substitute MemberDefinition where
+  subst p x d = case d of
+    TypeMemDefn n t -> TypeMemDefn n (subst p x t)
+    ValDefn n t e -> ValDefn n (subst p x t) (subst p x e)
+    DefDefn n as t e -> DefDefn n as (subst p x t) (subst p x e)
 
 instance Substitute Refinement where
   subst p x (RefineDecl t bound ty) = RefineDecl t bound (subst p x ty)
 
+instance Substitute Expr where
+  subst p x e = case e of
+    PathExpr p' -> PathExpr $ subst p x p'
+    Call p1 f args -> Call (subst p x p1) f (subst p x args)
+    New t b ds -> New (subst p x t) b (subst p x ds)
+    Let b t e1 e2 -> Let b (subst p x t) (subst p x e1) (subst p x e2)
+    TopLit -> e
+    UndefLit -> e
+    Assert b t1 t2 -> Assert b (subst p x t1) (subst p x t2)
+
+
 instance (Substitute a) => Substitute [a] where
   subst p x list = map (subst p x) list
+
+instance (Substitute a) => Substitute (Maybe a) where
+  subst p x list = fmap (subst p x) list

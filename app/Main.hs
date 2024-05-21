@@ -50,11 +50,13 @@ runFile arg input = do
   let bound_ast = getRight "bind" $ bind raw_ast
   putStrLn $ "Bound AST:\n" ++ show bound_ast
 
-  let type_graph = getRight "type-graph construction" $ getGraph bound_ast
+  let tc = tcContextOfArgs arg
+
+  let type_graph = getRight "type-graph construction" $ getGraph bound_ast tc
   putStrLn "Type graph:" >> mapM_ (putStrLn . show) type_graph
   let nocycles = getRight "material/shape separation" $ checkCycles type_graph
   nocycles `seq` putStrLn $ "Type graph looks good"
-  let ty = getRight "typechecking" $ typecheck bound_ast (tcContextOfArgs arg)
+  let ty = getRight "typechecking" $ typecheck bound_ast tc
   putStrLn $ "Type: " ++ (show ty)
 
 getRight :: String -> Either String b -> b

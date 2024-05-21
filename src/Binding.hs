@@ -6,11 +6,14 @@ import Control.Monad.State
 import Data.List (find)
 import qualified RawSyntax as Raw
 import Syntax
+import TypeUtil
 
 data BindCtx = BindVal Binding
              | BindType Binding
 
 type BindMonad = ReaderT [BindCtx] (StateT Int (Except String))
+
+type BindANF e = ([(Binding, Maybe Type, Expr)], e)
 
 newBinding :: Name -> BindMonad Binding
 newBinding name = do
@@ -148,39 +151,93 @@ bindBaseType b = case b of
     return $ PathType p' t
 
 bindExpr :: Raw.Expr -> BindMonad Expr
-bindExpr e = case e of
-  Raw.PathExpr p -> do
-    p' <- bindPath p
-    return $ PathExpr p'
+bindExpr e = do
+  (lets, e') <- bindExprLets e
+  return (makeLets lets e')
+
+makeLets :: [(Binding, Maybe Type, Expr)] -> Expr -> Expr
+makeLets bs e = makeLets' [] bs e
+
+-- Perform A-normalisation + CSE
+-- This is necessary because the source language allows method calls like
+-- > obj.field.method(obj.other_field)
+-- But the core language typechecker doesn't support this. So we translate to:
+-- > let of = obj.field in
+-- > let oo = obj.other_field in
+-- > of.method(oo)
+--
+-- We also perform a common subexpression elimination to remove duplicate
+-- bindings, because we want to ensure that the two fields in:
+-- > obj.field.method(obj.field)
+-- refer to the same variable:
+-- > let of = obj.field
+-- > of.method(of)
+--
+makeLets' :: [(Binding, Expr)] -> [(Binding, Maybe Type, Expr)] -> Expr -> Expr
+makeLets' _ [] e = e
+makeLets' acc ((b,t,d) : bs) e =
+  case find (\(b',d') -> d == d') acc of
+    Just (b', d') -> makeLets' acc bs (subst (Var b') b e)
+    Nothing -> Let b t d (makeLets' ((b, d) : acc) bs e)
+
+
+
+bindAsVar :: BindMonad (BindANF Expr) -> BindMonad (BindANF Expr)
+bindAsVar act = do
+  (bs, e) <- act
+  case e of
+    PathExpr (Var v) -> return (bs, e)
+    TopLit -> return (bs, e)
+    UndefLit -> return (bs, e)
+    _ -> do
+      fresh <- newBinding "anf"
+      return (bs ++ [(fresh, Nothing, e)], PathExpr (Var fresh))
+
+bindPathLets :: Raw.Path -> BindMonad (BindANF Path)
+bindPathLets p = do
+  (bs, e) <- bindAsVar $ bindExprLets (Raw.PathExpr p)
+  case e of
+    PathExpr p -> return (bs, p)
+    _ -> throwError ("impossible: expected path but got " ++ show e)
+
+bindExprLets :: Raw.Expr -> BindMonad (BindANF Expr)
+bindExprLets e = case e of
+  Raw.PathExpr (Raw.Var v) -> do
+    b <- fetchVal v
+    return ([], PathExpr $ Var b)
+  Raw.PathExpr (Raw.Field p t) -> do
+    (bs, p) <- bindPathLets p
+    return (bs, PathExpr $ Field p t)
   Raw.Call path meth args -> do
-    path' <- bindPath path
-    args' <- mapM bindPath args
-    return $ Call path' meth args'
+    (bs1, path') <- bindPathLets path
+    bssargs' <- mapM bindPathLets args
+    let (bss, args') = unzip bssargs'
+    return (bs1 ++ concat bss, Call path' meth args')
   Raw.New ty name defns -> do
     ty'    <- bindType ty
     b      <- newBinding name
     defns' <- local ((BindVal b):) $ mapM bindMemberDefn defns
-    return $ New ty' b defns'
+    return ([], New ty' b defns')
   Raw.Let x annot e1 e2 -> do
     x' <- newBinding x
-    e1' <- bindExpr e1
-    e2' <- local (BindVal x':) $ bindExpr e2
+    (bs1, e1') <- bindExprLets e1
+    (bs2, e2') <- local (BindVal x':) $ bindExprLets e2
     annot' <- bindMaybeType annot
-    return $ Let x' annot' e1' e2'
+    return (bs1 ++ [(x', annot', e1')] ++ bs2, e2')
   Raw.IntLit i -> do
     intTy <- bindType (Raw.Type (Raw.NamedType "Int") [])
     z <- newBinding "z"
     a <- newBinding "a"
     let defns = [DefDefn "plus" [Arg a intTy] intTy UndefLit]
-    return $ New intTy z defns
-  Raw.TopLit -> return TopLit  
-  Raw.UndefLit -> return UndefLit
+    return ([], New intTy z defns)
+  Raw.TopLit -> return ([], TopLit)
+  Raw.UndefLit -> return ([], UndefLit)
   Raw.Assert b t1 t2 -> do
     t1' <- bindType t1
     t2' <- bindType t2
-    return $ Assert b t1' t2'
+    return ([], Assert b t1' t2')
 
--- TODO: convert to ANF to avoid multi-length paths
+-- TODO: perform ANF at type level to allow multi-path types
 bindPath :: Raw.Path -> BindMonad Path
 bindPath p = case p of
   Raw.Var v -> do

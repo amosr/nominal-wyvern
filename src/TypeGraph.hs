@@ -72,11 +72,11 @@ mapTAs = mapM_ f
         g n (TypeMemDecl ta t _ _) = tell [(PPath (PVar n) t,ta)]
         g n _ = return ()
 
-getGraph prog@(Program decls expr) = runExcept (
+getGraph prog@(Program decls expr) ctx = runExcept (
                   runReaderT (
                     runReaderT (
                       execWriterT (buildGraph prog)
-                    ) (turnSubtypingOff $ appendTopLevel decls emptyCtx)
+                    ) (turnSubtypingOff $ appendTopLevel decls ctx)
                   ) (Map.fromList (execWriter (mapTAs decls)))
                 )
 
