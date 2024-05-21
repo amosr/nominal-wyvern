@@ -46,6 +46,28 @@ isSubtype (Type (NamedType n) r) (Type (NamedType n') r') = withTrace ("S-NameUp
       _ -> return False
     )
   -- Find all supertypes
+-- Non-deterministic S-Lower/S-Upper:
+-- The rules in the paper are not algorithmic. In fact, it's not trivial to implement them with a reasonable complexity.
+-- The problem here occurs when we have `p.T <: q.U`.
+-- We want to unfold one of the type members. But we don't want to unfold them too far....
+-- Example: in context
+-- a: X { type T <= Top }
+-- b: X { type T <= a.T }
+-- c: X { type T >= a.T }
+-- Now, suppose we want to check `b.T <: c.T`. This is true.
+-- We can't greedily unfold all the way. We'd end up with `Top <: a.T`, which isn't necessarily true.
+-- So, instead, we only want to unfold each side one step.
+-- In general, we don't know how far to unfold each one, so we try all alternatives.
+-- This is not good. Is there a better way?
+isSubtype tau0@(Type (PathType _ _) _) tau0'@(Type (PathType _ _) _)= withTrace ("S-Lower&S-Upper: " ++ show (tau0, tau0')) $ do
+  tau  <- Exposure.upcast tau0
+  tau' <- Exposure.upcast tau0'
+  case (tau, tau') of
+    (Just tau, Just tau') ->
+      isSubtype tau tau' ||^ isSubtype tau0 tau' ||^ isSubtype tau0 tau0'
+    (Just tau, Nothing) -> isSubtype tau tau0'
+    (Nothing, Just tau') -> isSubtype tau0 tau'
+    (Nothing, Nothing) -> return False
 -- Rule S-Lower
 isSubtype tau0@(Type (PathType _ _) _) tau' = withTrace ("S-Lower: " ++ show (tau0, tau')) $ do
   tau <- Exposure.upcast tau0
@@ -58,6 +80,11 @@ isSubtype tau tau0'@(Type (PathType _ _) _) = withTrace ("S-Upper: " ++ show (ta
   case tau' of
     Just tau' -> isSubtype tau tau'
     Nothing -> return False
+
+-- Otherwise, Top <: _ or _ <: Bot
+isSubtype tau tau' =
+  return False
+  -- throwError ("isSubtype unhandled: " ++ show (tau,tau'))
 
 -- Figure 10, subtyping relation `type t B \tau <: type t B \tau`
 -- This is subtyping on type members in the paper

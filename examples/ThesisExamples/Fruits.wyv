@@ -72,16 +72,19 @@ let tracker = new StockTracker { st =>
     }
   }
   def importApple ( a : Apple, stock : StockCounts) : StockCounts {
+    // XXX: AMOS: lift stock.numApples binding to ensure ANF
+    let nA = stock.numApples in
     new StockCounts {sc => 
-      val numApples : Int =  stock.numApples.plus(one)
+      val numApples : Int =  nA.plus(one)
       val numOranges : Int = stock.numOranges
     }
 
   }
   def importOrange ( o : Orange, stock : StockCounts) : StockCounts {
+    let nO = stock.numOranges in
     new StockCounts {sc => 
       val numApples : Int = stock.numApples
-      val numOranges : Int = stock.numOranges.plus(one)
+      val numOranges : Int = nO.plus(one)
     }
   }
 }

@@ -19,5 +19,4 @@ assertNot A <: B {type t <= B}
 // A <: B{{type t <= B}}
 // A -> B     {type t <= A {type t <= A}} <: {type t <= B} (loops :()
 // ...
-Top
 

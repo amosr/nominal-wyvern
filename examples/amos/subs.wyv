@@ -1,14 +1,14 @@
-type A { z =>
-  type X <= Unit
+name A { z =>
+  type X <= Top
 }
 
-type B { z =>
-  type X <= Unit
+name B { z =>
+  type X <= Top
 }
 
-subtype A extends B
+subtype A <: B
 
-// subtype A { type X <= Unit } extends BT
+// subtype A { type X <= Top } <: BT
 
 // assert A {} <: B {}
 // assert A { type X <= Top } <: B {}
@@ -16,7 +16,8 @@ subtype A extends B
 // assert A { type X <= Bot } <: B { type X <= Top }
 // assertNot A { type X <= Top } <: B { type X <= Bot }
 
-val ok : A { type X >= Unit } = new A {this =>
-  type X = Unit
+let ok : A { type X >= Top } = new A {this =>
+  type X = Top
 }
+in
 0

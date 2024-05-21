@@ -32,7 +32,10 @@ exposure tau@(Type base rs) = case base of
   -- Rules Exp-Upper, Exp-Otherwise
   PathType p@(Var b) t -> do
     tau' <- exposePath1 (\b -> b == LEQ || b == EQQ) rs b t
-    return (fromMaybe tau tau')
+    case tau' of
+      Just tau' -> exposure tau'
+      Nothing -> return tau
+    -- return (fromMaybe tau tau')
 
   PathType p t ->
     throwError "exposure: multi-length paths not supported"
@@ -44,9 +47,8 @@ exposePath1 checkBounds rs b t = withTrace ("exposePath1: " ++ show (rs,b,t)) $ 
   -- XXX TODO avoid catch here as it might silence real errors
   catchError (do
     TypeMemDecl _ _ b taut <- Lookup.lookupTypeMemDecl t taup' b
-    assert "expose" (checkBounds b)
-    tau' <- exposure taut
-    return (Just (merge tau' rs)))
+    assert ("expose: " ++ show (b,taut)) (checkBounds b)
+    return (Just (merge taut rs)))
     (\e -> return Nothing)
 
 

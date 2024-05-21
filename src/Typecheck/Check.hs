@@ -103,8 +103,12 @@ typecheckNew tau self defs = do
     assertSub (printf "new object is not subtype of declared type.\nobject type: %s" (show taux)) ok
     mapM_ checkDef defs
  where
-  checkDef TypeMemDefn{} = return ()
+  checkDef TypeMemDefn{} =
+    -- TODO: check against type member in tau
+    return ()
   checkDef (ValDefn v tauv ev) = do
+    -- TODO: must check against field in tau
+
     -- Change from paper: the paper uses the typecheck relation in check-mode;
     -- instead, we use typecheck in infer-mode and check subtype.
     -- This is simply to avoid implementing both check and infer modes, rather

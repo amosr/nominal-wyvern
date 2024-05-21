@@ -70,10 +70,10 @@ checkTLDecl s@(SubtypeDecl tau@(Type (NamedType n1) r1) (NamedType n2)) = withEr
   NameDecl _ _ x1 sigma1 <- lookupNameDecl n1
   NameDecl _ _ x2 sigma2 <- lookupNameDecl n2
   local (appendGamma [(x1, tau)]) $ do
-    let sigma1' = mergeDecls sigma1 (map refToDecl r1)
+    let sigma1' = mergeDecls (map refToDecl r1) sigma1
     let sigma2' = subst (Var x1) x2 sigma2
     ok <- Subtyping.isSubtypeMemDecls sigma1' sigma2'
-    assertSub (msg sigma1 sigma2) ok
+    assertSub (msg sigma1' sigma2') ok
   where
     msg sigma1 sigma2 = printf "invalid subtype decl: %s not a subtype of %s\n%s <:\n%s" (show tau) (show n2) (show sigma1) (show sigma2)
 checkTLDecl s@(SubtypeDecl (Type _ r1) _) =
