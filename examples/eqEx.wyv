@@ -18,3 +18,7 @@ let fruit_Set = new Set {type elemT = Fruit {type T = Fruit}} {z =>
   type elemT = Fruit {type T = Fruit}
 }
 in fruit_Set
+
+// Set$3 {type elemT = Fruit$2 {type T = Fruit$2}}
+// Set$3 {type elemT = Fruit$2 {type T = Fruit$2}}
+// Set$3 {type elemT = Fruit$2 {type T = Fruit$2 {type T >= Bot}}}

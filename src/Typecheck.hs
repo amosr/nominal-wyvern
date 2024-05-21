@@ -22,7 +22,7 @@ import qualified Typecheck.Lookup as Lookup
 import qualified Typecheck.Subtyping as Subtyping
 import qualified Typecheck.Check as Check
 
-typecheck prog = runExcept (runReaderT (fullTypecheck prog) emptyCtx)
+typecheck prog ctx = runExcept (runReaderT (fullTypecheck prog) ctx)
 
 -- Top-level typechecking
 -- Figure 5 judgment `P : \tau`
@@ -72,6 +72,7 @@ checkTLDecl s@(SubtypeDecl tau@(Type (NamedType n1) r1) (NamedType n2)) = withEr
   local (appendGamma [(x1, tau)]) $ do
     let sigma1' = mergeDecls (map refToDecl r1) sigma1
     let sigma2' = subst (Var x1) x2 sigma2
+    -- TODO: perform expansion?
     ok <- Subtyping.isSubtypeMemDecls sigma1' sigma2'
     assertSub (msg sigma1' sigma2') ok
   where

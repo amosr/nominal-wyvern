@@ -31,6 +31,7 @@ library
                        Typecheck.Lookup,
                        Typecheck.Subtyping,
                        Typecheck.Check,
+                       Typecheck.Expansion,
                        Typecheck
 
   other-extensions:    DeriveDataTypeable

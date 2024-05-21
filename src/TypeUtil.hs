@@ -33,7 +33,7 @@ data Context = Context
     extensions :: Extensions
   }
 
-emptyCtx = Context [] [] 0 On (Extensions False True)
+emptyCtx = Context [] [] 0 On (Extensions False False)
 
 appendTopLevel :: [TopLevelDeclaration] -> Context -> Context
 appendTopLevel ds (Context t g f c e) = Context (ds ++ t) g f c e

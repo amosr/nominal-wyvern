@@ -10,4 +10,4 @@ name IPair {z =>
 subtype IPair <: Pair
 
 //we expect this is a valid subtype?
-assertNot IPair <: Pair {type S = Int}
+assert IPair <: Pair {type S = Int}

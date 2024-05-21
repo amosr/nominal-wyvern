@@ -12,17 +12,21 @@ import           System.IO
 import           TypeGraph              (checkCycles, getGraph)
 import           Typecheck              (typecheck)
 
+import qualified TypeUtil as TypeUtil
+
 data Args = Args
   { input      :: FilePath
   , debug_flag :: Bool
   , repl_mode  :: Bool
+  , expansion  :: Bool
   }
   deriving (Show, Data, Typeable)
 
 wyv_args =
   Args { input      = def &= typFile &= argPos 0
-       , debug_flag = def &= name "d"
+       , debug_flag = def &= name "d" &= help "Enable debug tracing"
        , repl_mode  = def &= name "r"
+       , expansion  = def &= name "e" &= help "Enable expansion extension"
        }
     &= help ""
     &= program "wyvern typechecker"
@@ -30,16 +34,15 @@ wyv_args =
 main = do
   arg <- cmdArgs wyv_args
   let infile   = input arg
-  let is_debug = debug_flag arg
   let is_repl  = repl_mode arg
 
   prelude <- readFile "lib/Prelude.wyv"
   input   <- readFile infile
 
-  if is_repl then return () else runFile (prelude ++ input)
+  if is_repl then return () else runFile arg (prelude ++ input)
 
-runFile :: String -> IO ()
-runFile input = do
+runFile :: Args -> String -> IO ()
+runFile arg input = do
   let raw_ast = case parseFile input of
         Left  err -> error (show err)
         Right x   -> x
@@ -51,10 +54,18 @@ runFile input = do
   putStrLn "Type graph:" >> mapM_ (putStrLn . show) type_graph
   let nocycles = getRight "material/shape separation" $ checkCycles type_graph
   nocycles `seq` putStrLn $ "Type graph looks good"
-  let ty = getRight "typechecking" $ typecheck bound_ast
+  let ty = getRight "typechecking" $ typecheck bound_ast (tcContextOfArgs arg)
   putStrLn $ "Type: " ++ (show ty)
 
 getRight :: String -> Either String b -> b
 getRight stage e = case e of
   Left  err -> error ("\n  *** error during " ++ stage ++ " ***\n" ++ err)
   Right x   -> x
+
+tcContextOfArgs arg =
+  TypeUtil.emptyCtx {
+    TypeUtil.extensions = TypeUtil.Extensions {
+      TypeUtil.doExpansion = expansion arg,
+      TypeUtil.doTrace = debug_flag arg
+    }
+  }

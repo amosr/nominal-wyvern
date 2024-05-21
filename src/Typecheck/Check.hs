@@ -20,6 +20,7 @@ import TypeUtil
 import qualified Typecheck.Exposure as Exposure
 import qualified Typecheck.Lookup as Lookup
 import qualified Typecheck.Subtyping as Subtyping
+import qualified Typecheck.Expansion as Expansion
 
 -- Figure 6, expression typing
 typecheckExpr :: TC m => Expr -> m Type
@@ -31,7 +32,7 @@ typecheckExpr (Let x ta ex e) = do
     typecheckExpr ex
   taux <- case ta of
     Just taux' -> do
-      ok <- Subtyping.isSubtype taux taux'
+      ok <- Expansion.expandCheckSubtype taux taux'
       assertSub (msg taux taux') ok
       return taux'
     Nothing -> return taux
@@ -64,7 +65,7 @@ typecheckExpr (Call (Var p) f args) =
     checkArg (arg,param) = do
       taua <- Lookup.typecheckPathSingleton arg
       -- TODO: expressivity: we should substitute into param types before checking. this isn't required for paper as paper only supports single-argument methods
-      ok <- Subtyping.isSubtype taua (argType param)
+      ok <- Expansion.expandCheckSubtype taua (argType param)
       assertSub
         (printf "Parameter %s instantiated to %s\n  Expected type %s; got %s" (show (argName param)) (show arg) (show (argType param)) (show taua))
         ok
@@ -86,7 +87,7 @@ typecheckExpr (New tau self defs) = withErrorContext ("in new expression of type
 typecheckExpr TopLit = return theTop
 typecheckExpr UndefLit = return theBot
 typecheckExpr (Assert b tau1 tau2) = do
-  ok <- Subtyping.isSubtype tau1 tau2
+  ok <- Expansion.expandCheckSubtype tau1 tau2
   let msg = printf "assertion failed: %s %s %s"
         (show tau1)
         (if b then "<:" else "</:")
@@ -99,7 +100,7 @@ typecheckNew tau self defs = do
   let refs = ref (sig defs)
   let taux = merge tau refs
   local (appendGamma [(self, taux)]) $ do
-    ok <- Subtyping.isSubtype taux tau
+    ok <- Expansion.expandCheckSubtype taux tau
     assertSub (printf "new object is not subtype of declared type.\nobject type: %s" (show taux)) ok
     mapM_ checkDef defs
  where
@@ -114,7 +115,7 @@ typecheckNew tau self defs = do
     -- This is simply to avoid implementing both check and infer modes, rather
     -- than any fundamental reason.
     tauv' <- typecheckExpr ev
-    ok <- Subtyping.isSubtype tauv' tauv
+    ok <- Expansion.expandCheckSubtype tauv' tauv
     assertSub (printf "field definition `%s` is not subtype of declared type\nexpression: %s\nhas type: %s\nexpected type: %s" v (show ev) (show tauv') (show tauv)) ok
   checkDef (DefDefn f args taur er) = do
     -- TODO: where do we check wellformedness of arg types?
@@ -122,7 +123,7 @@ typecheckNew tau self defs = do
     local (appendGamma binds) $ do
       -- Change from paper: as in value check above, use infer-mode
       taur' <- typecheckExpr er
-      ok <- Subtyping.isSubtype taur' taur
+      ok <- Expansion.expandCheckSubtype taur' taur
       assertSub (printf "method definition `%s` result is not subtype of declared type\nexpression: %s\nhas type: %s\nexpected type: %s" f (show er) (show taur') (show taur)) ok
 
 -- Figure 6, type validity
@@ -147,5 +148,7 @@ assertTypeValid tau0@(Type b rb) =
   where
     check self tauu r@(RefineDecl t b tau) = do
       mem@(TypeMemDecl _ _ b' tau') <- Lookup.lookupTypeMemDecl t tauu self
-      ok <- Subtyping.isSubtypeRefinementMember r (RefineDecl t b' tau')
+      -- TODO: is this expansion correct?
+      tauX <- Expansion.tryExpandLhs tau tau'
+      ok <- Subtyping.isSubtypeRefinementMember (RefineDecl t b tauX) (RefineDecl t b' tau')
       assertSub (printf "type refinement not subtype\n  refinement: %s\n  class member: %s" (show r) (show mem)) ok
