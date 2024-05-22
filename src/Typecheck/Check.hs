@@ -36,14 +36,17 @@ typecheckExpr (Let x ta ex e) = do
       assertSub (msg taux taux') ok
       return taux'
     Nothing -> return taux
-  local (appendGamma [(x, taux)]) $ typecheckExpr e
+  taux' <- local (appendGamma [(x, taux)]) $ typecheckExpr e
+  let ok = not (freeInType x taux')
+  assert (msgFree taux') ok
+  return taux'
  where
   msg t1 t2 = printf "type annotation on let: %s not a subtype of %s\nlet-expression %s = %s" (show t1) (show t2) (show x) (show ex)
+  msgFree t = printf "let-expression %s escapes-check:\nthe let-expression has type %s, which refers to the local binding\n" (show x) (show t)
 -- Rule T-Sel
 typecheckExpr (PathExpr (Field p t)) = do
   tau  <- Lookup.typecheckPathSingleton p
   tau' <- Exposure.exposure tau
-  -- Slight change from paper: tau' doesn't actually need to be a name 'n'
   ValDecl _ tauv <- Lookup.lookupValDecl t tau' p
   return tauv
 

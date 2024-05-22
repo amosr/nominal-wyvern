@@ -240,3 +240,15 @@ instance (Substitute a) => Substitute [a] where
 
 instance (Substitute a) => Substitute (Maybe a) where
   subst p x list = fmap (subst p x) list
+
+-- Free variable membership
+freeInType :: Binding -> Type -> Bool
+freeInType b (Type t rs) = freeInBase b t || any (freeInRef b) rs
+
+freeInBase b (PathType p _) = freeInPath b p
+freeInBase b _ = False
+
+freeInPath b (Var b') = b == b'
+freeInPath b (Field p _) = freeInPath b p
+
+freeInRef b (RefineDecl _ _ tau) = freeInType b tau

@@ -75,16 +75,3 @@ unfold1 tau@(Type (PathType p t) r) rs = do
 
 -- Top / Bot
 unfold1 tau _ = return tau
-
-
--- Free variable membership
-freeInType :: Binding -> Type -> Bool
-freeInType b (Type t rs) = freeInBase b t || any (freeInRef b) rs
-
-freeInBase b (PathType p _) = freeInPath b p
-freeInBase b _ = False
-
-freeInPath b (Var b') = b == b'
-freeInPath b (Field p _) = freeInPath b p
-
-freeInRef b (RefineDecl _ _ tau) = freeInType b tau
