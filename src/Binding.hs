@@ -13,7 +13,18 @@ data BindCtx = BindVal Binding
 
 type BindMonad = ReaderT [BindCtx] (StateT Int (Except String))
 
-type BindANF e = ([(Binding, Maybe Type, Expr)], e)
+-- Local bindings for translating to A-normal form
+data BindLetX = BindLetX {
+  blxBinding :: Binding,
+  blxType :: Maybe Type,
+  blxExpr :: Expr,
+  -- | Whether to perform common subexpression elimination & potentially remove this binding
+  -- User-written bindings should not be removed, even if they are duplicates
+  -- But intermediate bindings we introduce can be CSE'd away
+  blxDoCSE :: Bool
+}
+
+type BindANF e = ([BindLetX], e)
 
 newBinding :: Name -> BindMonad Binding
 newBinding name = do
@@ -155,7 +166,7 @@ bindExpr e = do
   (lets, e') <- bindExprLets e
   return (makeLets lets e')
 
-makeLets :: [(Binding, Maybe Type, Expr)] -> Expr -> Expr
+makeLets :: [BindLetX] -> Expr -> Expr
 makeLets bs e = makeLets' [] bs e
 
 -- Perform A-normalisation + CSE
@@ -173,12 +184,16 @@ makeLets bs e = makeLets' [] bs e
 -- > let of = obj.field
 -- > of.method(of)
 --
-makeLets' :: [(Binding, Expr)] -> [(Binding, Maybe Type, Expr)] -> Expr -> Expr
+makeLets' :: [(Binding, Expr)] -> [BindLetX] -> Expr -> Expr
 makeLets' _ [] e = e
-makeLets' acc ((b,t,d) : bs) e =
+makeLets' acc (BindLetX b t d False : bs) e =
+  Let b t d (makeLets' ((b, d) : acc) bs e)
+makeLets' acc (BindLetX b t d True : bs) e =
   case find (\(b',d') -> d == d') acc of
-    Just (b', d') -> makeLets' acc bs (subst (Var b') b e)
+    Just (b', d') -> makeLets' acc (substs (Var b') b bs) (subst (Var b') b e)
     Nothing -> Let b t d (makeLets' ((b, d) : acc) bs e)
+ where
+  substs p x = map (\(BindLetX b t e cse) -> BindLetX b (subst p x t) (subst p x e) cse)
 
 
 
@@ -191,7 +206,7 @@ bindAsVar act = do
     UndefLit -> return (bs, e)
     _ -> do
       fresh <- newBinding "anf"
-      return (bs ++ [(fresh, Nothing, e)], PathExpr (Var fresh))
+      return (bs ++ [BindLetX fresh Nothing e True], PathExpr (Var fresh))
 
 bindPathLets :: Raw.Path -> BindMonad (BindANF Path)
 bindPathLets p = do
@@ -223,7 +238,7 @@ bindExprLets e = case e of
     (bs1, e1') <- bindExprLets e1
     (bs2, e2') <- local (BindVal x':) $ bindExprLets e2
     annot' <- bindMaybeType annot
-    return (bs1 ++ [(x', annot', e1')] ++ bs2, e2')
+    return (bs1 ++ [BindLetX x' annot' e1' False] ++ bs2, e2')
   Raw.IntLit i -> do
     intTy <- bindType (Raw.Type (Raw.NamedType "Int") [])
     z <- newBinding "z"
