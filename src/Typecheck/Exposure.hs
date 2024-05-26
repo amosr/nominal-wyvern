@@ -67,43 +67,30 @@ downcast tau@(Type base rs) = case base of
   -- Rule Dc-Otherwise(2)
   _ -> return Nothing
 
+-- `avoid` from Jonathan email discussion 2024/05/26
+-- simplify type to avoid given self binding
+avoid :: TC m => Binding -> Type -> m (Maybe Type)
+avoid x (Type t r) = do
+  t' <- avoidBase x t
+  r' <- mapM (avoidRefinement x) r
+  return (merge <$> t' <*> sequence r')
 
--- unfold :: TC m => Type -> m (Binding, [MemberDeclaration])
--- unfold t0 = do
---   t1 <- typeExpand t0
---   normaliseMembers t1
+avoidBase :: TC m => Binding -> BaseType -> m (Maybe Type)
+avoidBase x TopType = return $ Just $ Type TopType []
+avoidBase x BotType = return $ Just $ Type BotType []
+avoidBase x (NamedType n) = return $ Just $ Type (NamedType n) []
+avoidBase x (PathType p t)
+  | p == Var x = do
+    taup  <- Lookup.typecheckPathSingleton p
+    -- XXX: need catch here? if type has no such member, is it a top-level error?
+    TypeMemDecl _ _ b taut <- Lookup.lookupTypeMemDecl t taup p
+    case b of
+      EQQ -> return $ Just taut
+      _   -> return Nothing
+  | otherwise
+  = return $ Just $ Type (PathType p t) []
 
--- typeExpand :: TC m => Type -> m Type
--- typeExpand tau@(Type base rs) = case base of
---   PathType p t -> withErrorContext (printf "in type expand (path %s)" (show tau)) $ do
---     tau_p <- typecheckPath p
---     (z, decls) <- unfold tau_p
---     TypeMemDecl _ _ bound ty <- Lookup.lookupTypeMemDecl t tau_p
---     case bound of
---       GEQ -> return tau
---       _ -> typeExpand (subst p z (merge ty rs))
---   _ -> return tau
-
--- typeExpand :: TC m => Type -> m Type
--- typeExpand tau@(Type base rs) = case base of
---   PathType p t -> withErrorContext (printf "in type expand (path %s)" (show tau)) $ do
---     tau_p <- typecheckPath p
---     (z, decls) <- unfold tau_p
---     TypeMemDecl _ _ bound ty <- Lookup.lookupTypeMemDecl t tau_p
---     case bound of
---       GEQ -> return tau
---       _ -> typeExpand (subst p z (merge ty rs))
---   _ -> return tau
-
-
--- -- Figure 7, type-member lookup
--- lookupMemberDecls :: TC m => (MemberDeclaration -> Bool) -> Type -> Binding -> m MemberDeclaration
--- lookupMemberDecls pred ty self =
---   let _
-
--- lookupRefinements :: TC m => (MemberDeclaration -> Bool) -> [Refinement] -> m (Maybe MemberDeclaration)
--- lookupRefinements pred ty self =
-
--- refinementOfMemberDeclaration :: Refinement -> MemberDeclaration
--- refinementOfMemberDeclaration (Refinement n b t) = TypeMemDecl Material n b t
-
+avoidRefinement :: TC m => Binding -> Refinement -> m (Maybe Refinement)
+avoidRefinement x (RefineDecl n b tau) = do
+  t' <- avoid x tau
+  return (RefineDecl n b <$> t')

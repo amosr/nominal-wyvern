@@ -28,21 +28,23 @@ typecheckExpr :: TC m => Expr -> m Type
 typecheckExpr (PathExpr (Var p)) = Lookup.typecheckPathSingleton (Var p)
 -- Rule T-Let
 typecheckExpr (Let x ta ex e) = do
-  taux <- withErrorContext (printf "in let-expression %s" (show x)) $
-    typecheckExpr ex
-  taux <- case ta of
-    Just taux' -> do
-      ok <- Expansion.expandCheckSubtype taux taux'
-      assertSub (msg taux taux') ok
-      return taux'
-    Nothing -> return taux
-  taux' <- local (appendGamma [(x, taux)]) $ typecheckExpr e
-  let ok = not (freeInType x taux')
-  assert (msgFree taux') ok
-  return taux'
+  taux <- withErrorContext (printf "in let-expression %s" (show x)) $ do
+    taux <- typecheckExpr ex
+    case ta of
+      Just taux' -> do
+        ok <- Expansion.expandCheckSubtype taux taux'
+        assertSub (msg taux taux') ok
+        return taux'
+      Nothing -> return taux
+  local (appendGamma [(x, taux)]) $ do
+    taud <- typecheckExpr e
+    taud' <- Exposure.avoid x taud
+    case taud' of
+      Just taud' -> return taud'
+      Nothing ->
+        throwError (printf "let-expression %s escapes-check:\nthe let-expression has type %s, which refers to the local binding\n" (show x) (show taud))
  where
   msg t1 t2 = printf "type annotation on let: %s not a subtype of %s\nlet-expression %s = %s" (show t1) (show t2) (show x) (show ex)
-  msgFree t = printf "let-expression %s escapes-check:\nthe let-expression has type %s, which refers to the local binding\n" (show x) (show t)
 -- Rule T-Sel
 typecheckExpr (PathExpr (Field p t)) = do
   tau  <- Lookup.typecheckPathSingleton p
