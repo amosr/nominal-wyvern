@@ -224,6 +224,9 @@ instance Substitute MemberDefinition where
 instance Substitute Refinement where
   subst p x (RefineDecl t bound ty) = RefineDecl t bound (subst p x ty)
 
+instance Substitute Arg where
+  subst p x (Arg n t) = Arg n (subst p x t)
+
 instance Substitute Expr where
   subst p x e = case e of
     PathExpr p' -> PathExpr $ subst p x p'

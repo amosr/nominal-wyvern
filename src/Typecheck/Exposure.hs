@@ -48,7 +48,9 @@ exposePath1 checkBounds rs p t = withTrace ("exposePath1: " ++ show (rs,p,t)) $ 
     (\e -> return Nothing)
 
 
--- XXX: paper wrong: upcast and downcast should be partial
+-- Change from paper: we encode upcast and downcast as partial functions here.
+-- The paper version is a total function, but upcast is non-deterministically
+-- applied. Making it partial lets the subtyping algorithm control backtracking.
 upcast :: TC m => Type -> m (Maybe Type)
 upcast tau@(Type base rs) = case base of
   -- Rules Uc-Upper, Uc-Otherwise(1)

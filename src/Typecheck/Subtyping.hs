@@ -61,10 +61,10 @@ isSubtype (Type (NamedType n) r) (Type (NamedType n') r') = withTrace ("S-NameUp
 -- This is not good. Is there a better way?
 isSubtype tau0@(Type (PathType _ _) _) tau0'@(Type (PathType _ _) _)= withTrace ("S-Lower&S-Upper: " ++ show (tau0, tau0')) $ do
   tau  <- Exposure.upcast tau0
-  tau' <- Exposure.upcast tau0'
+  tau' <- Exposure.downcast tau0'
   case (tau, tau') of
     (Just tau, Just tau') ->
-      isSubtype tau tau' ||^ isSubtype tau0 tau' ||^ isSubtype tau0 tau0'
+      isSubtype tau tau' ||^ isSubtype tau0 tau' ||^ isSubtype tau tau0'
     (Just tau, Nothing) -> isSubtype tau tau0'
     (Nothing, Just tau') -> isSubtype tau0 tau'
     (Nothing, Nothing) -> return False
@@ -143,8 +143,18 @@ isSubtypeMemDecls s1 (ValDecl v tau2 : s2) =
 isSubtypeMemDecls s1 (DefDecl f arg2 ret2 : s2) =
   case find (matchDefDecl f) s1 of
     Just (DefDecl _ arg1 ret1) ->
-      isSubtype ret1 ret2 &&^
-      allM (\(a1,a2) -> isSubtype (argType a2) (argType a1)) (arg1 `zip` arg2) &&^
+      return (length arg1 == length arg2) &&^
+      go arg1 arg2 ret1 ret2 &&^
       isSubtypeMemDecls s1 s2
     _ -> return False
+ where
+  go [] [] ret1 ret2 = isSubtype ret1 ret2
+  go (a1 : args1) (a2: args2) ret1 ret2 =
+    let sbst e = subst (Var (argName a2)) (argName a1) e in
+    isSubtype (argType a2) (argType a1) &&^
+    local (appendGamma [(argName a2, argType a2)])
+      (go (sbst args1) args2 (sbst ret1) ret2)
 
+  -- bad lengths
+  go _ [] ret1 ret2 = return False
+  go [] _ ret1 ret2 = return False
