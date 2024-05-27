@@ -160,6 +160,6 @@ assertTypeValid tau0@(Type b rb) =
     check self tauu r@(RefineDecl t b tau) = do
       mem@(TypeMemDecl _ _ b' tau') <- Lookup.lookupTypeMemDecl t tauu self
       -- TODO: is this expansion correct even for >= members?
-      tauX <- Expansion.tryExpandLhs tau tau'
-      ok <- Subtyping.isSubtypeRefinementMember (RefineDecl t b tauX) (RefineDecl t b' tau')
+      (tauX,tauX') <- Expansion.tryExpandPair tau tau'
+      ok <- Subtyping.isSubtypeRefinementMember (RefineDecl t b tauX) (RefineDecl t b' tauX')
       assertSub (printf "type refinement not subtype\n  refinement: %s\n  class member: %s" (show r) (show mem)) ok
