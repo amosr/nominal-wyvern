@@ -35,7 +35,7 @@ lookupMemberDecl pred err (Type base rs) self_new
   throwError err
 
 lookupValDecl :: (MonadReader Context m, MonadError String m, MonadFail m) => Name -> Type -> Path -> m MemberDeclaration
-lookupValDecl field ty = lookupMemberDecl pred msg ty
+lookupValDecl field ty p = lookupMemberDecl pred msg ty p
  where
   pred (ValDecl field' _) = field == field'
   pred _ = False
@@ -43,12 +43,14 @@ lookupValDecl field ty = lookupMemberDecl pred msg ty
   msg = printf "couldn't find field named %s in type %s" (show field) (show ty)
 
 lookupTypeMemDecl :: (MonadReader Context m, MonadError String m, MonadFail m) => Name -> Type -> Path -> m MemberDeclaration
-lookupTypeMemDecl field ty = lookupMemberDecl pred msg ty
+lookupTypeMemDecl field ty p = do
+  g <- reader gamma
+  lookupMemberDecl pred (msg g) ty p
  where
   pred (TypeMemDecl _ field' _ _) = field == field'
   pred _ = False
 
-  msg = printf "couldn't find type member named %s in type %s" (show field) (show ty)
+  msg g = printf "couldn't find type member named %s in type %s\ncontext: %s" (show field) (show ty) (show g)
 
 lookupDefDecl :: (MonadReader Context m, MonadError String m, MonadFail m) => Name -> Type -> Path -> m MemberDeclaration
 lookupDefDecl field ty = lookupMemberDecl pred msg ty

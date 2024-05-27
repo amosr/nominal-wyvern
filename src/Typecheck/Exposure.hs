@@ -69,6 +69,7 @@ downcast tau@(Type base rs) = case base of
 
 -- `avoid` from Jonathan email discussion 2024/05/26
 -- simplify type to avoid given self binding
+-- TODO: parameterise by bound-set {EQQ}, {LEQ,EQQ} or {EQQ,GEQ}
 avoid :: TC m => Binding -> Type -> m (Maybe Type)
 avoid x (Type t r) = do
   t' <- avoidBase x t
@@ -80,15 +81,18 @@ avoidBase x TopType = return $ Just $ Type TopType []
 avoidBase x BotType = return $ Just $ Type BotType []
 avoidBase x (NamedType n) = return $ Just $ Type (NamedType n) []
 avoidBase x (PathType p t)
-  | p == Var x = do
+  -- XXX: need catch here? if type has no such member, is it a top-level error?
+  -- implement with catch for now, as it gives a better error message
+  | p == Var x = catch $ do
     taup  <- Lookup.typecheckPathSingleton p
-    -- XXX: need catch here? if type has no such member, is it a top-level error?
     TypeMemDecl _ _ b taut <- Lookup.lookupTypeMemDecl t taup p
     case b of
       EQQ -> return $ Just taut
       _   -> return Nothing
   | otherwise
   = return $ Just $ Type (PathType p t) []
+ where
+  catch act = catchError act (\_ -> return Nothing)
 
 avoidRefinement :: TC m => Binding -> Refinement -> m (Maybe Refinement)
 avoidRefinement x (RefineDecl n b tau) = do

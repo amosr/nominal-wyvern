@@ -118,7 +118,7 @@ typecheckNew tau self defs = do
   checkDef TypeMemDefn{} =
     -- TODO: check against type member in tau
     return ()
-  checkDef (ValDefn v tauv ev) = do
+  checkDef def@(ValDefn v tauv ev) = withErrorContext ("field " ++ show def)  $ do
     -- TODO: must check against field in tau
 
     -- Change from paper: the paper uses the typecheck relation in check-mode;
@@ -128,7 +128,7 @@ typecheckNew tau self defs = do
     tauv' <- typecheckExpr ev
     ok <- Expansion.expandCheckSubtype tauv' tauv
     assertSub (printf "field definition `%s` is not subtype of declared type\nexpression: %s\nhas type: %s\nexpected type: %s" v (show ev) (show tauv') (show tauv)) ok
-  checkDef (DefDefn f args taur er) = do
+  checkDef (DefDefn f args taur er) = withErrorContext ("method " ++ f) $ do
     -- TODO: where do we check wellformedness of arg types?
     let binds = map (\a -> (argName a, argType a)) args
     local (appendGamma binds) $ do
