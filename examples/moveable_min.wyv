@@ -1,0 +1,27 @@
+// Smallish counterexample that requires avoid with <= bounds
+name IntPair {z =>
+  val l:Int
+  val r:Int
+}
+@shape name Moveable {m =>
+  type T <= Top
+  def move(amt:IntPair):m.T
+}
+
+name FMoveable {x =>
+  type T <= Moveable {type T <= x.T}
+  val obj:x.T
+}
+name Utils {z =>
+  def translate(arg:FMoveable):arg.T
+}
+
+let utils = new Utils {this =>
+  def translate(arg:FMoveable):arg.T {
+    let ao = arg.obj in
+    let p: IntPair = undefined in
+    ao.move(p)
+  }
+} in
+
+0
