@@ -66,7 +66,7 @@ let zz = new IntPair {z =>
 } in
 
 let origin = pointCons.create(zz) in
-let fm = new FMoveable {xx =>
+let fm = new FMoveable { type T = Point } {xx =>
   type T = Point
   val obj : Point = origin
 } in

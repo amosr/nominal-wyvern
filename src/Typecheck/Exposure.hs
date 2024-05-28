@@ -94,15 +94,17 @@ avoidBase checkBounds x (PathType p t)
   -- implement with catch for now, as it gives a better error message
   | p == Var x = catch $ do
     taup  <- Lookup.typecheckPathSingleton p
+    -- CHANGE: different from Jonathan's: perform exposure here
     taup' <- exposure taup
     TypeMemDecl _ _ b taut <- Lookup.lookupTypeMemDecl t taup' p
     if Set.member b checkBounds
-    then return $ Just taut
+    then avoid checkBounds x taut
+    -- then return (Just taut)
     else return Nothing
   | otherwise
   = return $ Just $ Type (PathType p t) []
  where
-  catch act = catchError act (\_ -> return Nothing)
+  catch act = catchError act (\e -> withErrorContext ("avoid:fallback:" ++ show e) $ return Nothing)
 
 avoidRefinement :: TC m => Set.Set Bound -> Binding -> Refinement -> m (Maybe Refinement)
 avoidRefinement checkBounds x (RefineDecl n b tau) = do

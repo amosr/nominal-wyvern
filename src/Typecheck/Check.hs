@@ -97,7 +97,7 @@ typecheckExpr (New tau self defs) = withErrorContext ("in new expression of type
 -- Extensions
 typecheckExpr TopLit = return theTop
 typecheckExpr UndefLit = return theBot
-typecheckExpr (Assert b tau1 tau2) = do
+typecheckExpr a@(Assert b tau1 tau2) = withErrorContext (show a) $ do
   ok <- Expansion.expandCheckSubtype tau1 tau2
   let msg = printf "assertion failed: %s %s %s"
         (show tau1)
@@ -115,20 +115,30 @@ typecheckNew tau self defs = do
     assertSub (printf "new object is not subtype of declared type.\nobject type: %s" (show taux)) ok
     mapM_ checkDef defs
  where
-  checkDef TypeMemDefn{} =
-    -- TODO: check against type member in tau
-    return ()
+  checkDef def@(TypeMemDefn t taum) = withErrorContext ("type member " ++ show def) $ do
+    -- CHANGE FROM PAPER: check that the definition agrees with the type. The paper should do this
+    TypeMemDecl _ _ b' taum' <- Lookup.lookupTypeMemDecl t tau (Var self)
+    (t1,t2) <- Expansion.tryExpandPair taum taum'
+    ok <- Subtyping.isSubtypeRefinementMember (RefineDecl t EQQ t1) (RefineDecl t b' taum')
+    assertSub (printf "object type member `%s` is not subtype of type's type member\nobject type member: %s\ntype type member: %s" t (show taum) (show taum')) ok
+
   checkDef def@(ValDefn v tauv ev) = withErrorContext ("field " ++ show def)  $ do
-    -- TODO: must check against field in tau
+    -- CHANGE FROM PAPER: check that the definition agrees with the type. The paper should do this
+    ValDecl _ tauv_ty <- Lookup.lookupValDecl v tau (Var self)
 
     -- Change from paper: the paper uses the typecheck relation in check-mode;
     -- instead, we use typecheck in infer-mode and check subtype.
     -- This is simply to avoid implementing both check and infer modes, rather
     -- than any fundamental reason.
     tauv' <- typecheckExpr ev
-    ok <- Expansion.expandCheckSubtype tauv' tauv
-    assertSub (printf "field definition `%s` is not subtype of declared type\nexpression: %s\nhas type: %s\nexpected type: %s" v (show ev) (show tauv') (show tauv)) ok
+    ok1 <- Expansion.expandCheckSubtype tauv' tauv
+    assertSub (printf "field definition `%s` is not subtype of locally declared type\nexpression: %s\nhas type: %s\nexpected type: %s" v (show ev) (show tauv') (show tauv)) ok1
+    ok2 <- Expansion.expandCheckSubtype tauv tauv_ty
+    assertSub (printf "field definition `%s` is not subtype of declared type from class\nexpression: %s\nhas type: %s\nexpected type: %s" v (show ev) (show tauv) (show tauv_ty)) ok2
   checkDef (DefDefn f args taur er) = withErrorContext ("method " ++ f) $ do
+    -- CHANGE FROM PAPER: check that the definition agrees with the type. The paper should do this
+    DefDecl _ cargs cret <- Lookup.lookupDefDecl f tau (Var self)
+    checkDefArgs f args cargs taur cret
     -- TODO: where do we check wellformedness of arg types?
     let binds = map (\a -> (argName a, argType a)) args
     local (appendGamma binds) $ do
@@ -136,6 +146,22 @@ typecheckNew tau self defs = do
       taur' <- typecheckExpr er
       ok <- Expansion.expandCheckSubtype taur' taur
       assertSub (printf "method definition `%s` result is not subtype of declared type\nexpression: %s\nhas type: %s\nexpected type: %s" f (show er) (show taur') (show taur)) ok
+
+  checkDefArgs f [] [] oret cret = do
+    ok <- Expansion.expandCheckSubtype oret cret
+    assertSub (printf "method definition `%s` result is not subtype of class result type\nobject result type: %s\nclass result type: %s" f (show oret) (show cret)) ok
+
+  checkDefArgs f (Arg on ot : oargs) (Arg cn ct :cargs) oret cret = do
+    ok <- Expansion.expandCheckSubtype ct ot
+    assertSub (printf "method definition `%s` parameter %s is not supertype of class parameter %s\nobject parameter type: %s\nclass parameter type: %s" f (show on) (show cn) (show ot) (show ct)) ok
+    local (appendGamma [(cn,ct)]) $
+      checkDefArgs f (subst (Var cn) on oargs) cargs (subst (Var cn) on oret) cret
+
+  checkDefArgs f [] trailing _ _ = do
+    throwError (printf "method definition `%s`: too few arguments in object definition\nexpected extra arguments: %s" f (show trailing))
+
+  checkDefArgs f extra [] _ _ = do
+    throwError (printf "method definition `%s`: too many arguments in object definition\nunexpected extra arguments: %s" f (show extra))
 
 -- Figure 6, type validity
 -- \Gamma \vdash \tau valid

@@ -8,8 +8,8 @@ name B { this =>
 
 subtype B <: A
 
-assert B {type S = Int} <: A {type T >= B {type S = Int}}
+// assert B {type S = Int} <: A {type T >= B {type S = Int}}
 // assert B {type S = Int, type T >= B { type S = B { type S = Int }}} <: A {type T >= B {type S = Int}}
 
 
-// assert B { type S = Top } <: A { type T = A { type T >= B { type S = B { type S = Top }}} }
+assert B { type S = Top } <: A { type T = A { type T >= B { type S = B { type S = Top }}} }

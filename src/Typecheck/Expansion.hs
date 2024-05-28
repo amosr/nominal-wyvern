@@ -32,7 +32,8 @@ depthRefinement (RefineDecl _ _ tau) = depth tau
 expandCheckSubtype :: TC m => Type -> Type -> m Bool
 expandCheckSubtype t1 t2 = do
   (t1', t2') <- tryExpandPair t1 t2
-  Subtyping.isSubtype t1' t2'
+  withErrorContext ("expanded: " ++ show (t1', t2')) $
+    Subtyping.isSubtype t1' t2'
 
 tryExpandPair :: TC m => Type -> Type -> m (Type, Type)
 tryExpandPair t1 t2 = do
@@ -60,10 +61,11 @@ expandR d (RefineDecl n b tau) = do
 
 
 unfold1 :: TC m => Type -> m Type
-unfold1 (Type (NamedType n) r) = do
+unfold1 tau@(Type (NamedType n) r) = do
   NameDecl _ _ self fields <- lookupNameDecl n
-  r' <- concatMapM (takeField self) fields
-  return (Type (NamedType n) (mergeRefs r r'))
+  local (appendGamma [(self, tau)]) $ do
+    r' <- concatMapM (takeField self) fields
+    return (Type (NamedType n) (mergeRefs r r'))
  where
   takeField self tt@(TypeMemDecl _ t b tau) = do
     tau' <- Exposure.avoid Exposure.bounds'EQQ self tau
@@ -72,19 +74,23 @@ unfold1 (Type (NamedType n) r) = do
       Nothing -> return []
   takeField _ _ = return []
 
-unfold1 tau@(Type (PathType p t) r) = do
-  tau' <- Exposure.exposure tau
-  case tau' of
-    Type (NamedType n) r -> do
-      Type _ r' <- unfold1 tau'
-      -- It's tempting to return the above unfolding as-is, but for a subtyping judgment
-      --   p.t <: p.t
-      -- we do not want to unfold p.t on the left-hand-side -- it might make
-      -- the judgment un-derivable.
-      -- Instead, apply the refinements we find to the original path
-      return (Type (PathType p t) r')
+-- XXX: disable: do not unfold paths
+-- Is using exposure to unfold the path is legit in all contexts?
+-- Jonathan's doesn't, so I won't
 
-    _ -> return tau
+-- unfold1 tau@(Type (PathType p t) r) = do
+--   tau' <- Exposure.exposure tau
+--   case tau' of
+--     Type (NamedType n) r -> do
+--       Type _ r' <- unfold1 tau'
+--       -- It's tempting to return the above unfolding as-is, but for a subtyping judgment
+--       --   p.t <: p.t
+--       -- we do not want to unfold p.t on the left-hand-side -- it might make
+--       -- the judgment un-derivable.
+--       -- Instead, apply the refinements we find to the original path
+--       return (Type (PathType p t) r')
+
+--     _ -> return tau
 
 -- Top / Bot
 unfold1 tau = return tau

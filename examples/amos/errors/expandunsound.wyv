@@ -10,24 +10,41 @@ name A { self =>
 }
 
 name Id { self =>
-  def string_id(arg: A { type S = String, type T = Bool }): A { type S = String, type T = Bool }
+  def impossible(arg: A { type S = String, type T = Bool }): A { type S = String, type T = Bool }
+  def with_string(arg: A { type S = String }): A { type S = String, type T = String }
+  def with_bool(arg: A { type S = Bool }): A { type T = Bool }
 }
 
-let self =
+let bools =
   new A { type S = Bool } { self =>
     type S = Bool
     type T = Bool
   } in
-let other =
+let strings =
   new A { type S = String } { self =>
     type S = String
     type T = String
   } in
-let id =
+let methods =
   new Id { self =>
-    def string_id(arg: A { type S = String, type T = Bool }): A { type S = String, type T = Bool } {
+    def impossible(arg: A { type S = String, type T = Bool }): A { type S = String, type T = Bool } {
+      arg
+    }
+    def with_string(arg: A { type S = String }): A { type S = String } {
+      arg
+    }
+    def with_bool(arg: A { type S = Bool }): A { type T = Bool } {
       arg
     }
   } in
 
-id.string_id(other)
+// should error:
+// methods.impossible(bools)
+
+// should error:
+// methods.with_string(bools)
+
+// should work:
+let u = methods.with_string(strings) in
+let u = methods.with_bool(bools) in
+0
