@@ -57,7 +57,7 @@ expand d t = withTrace ("expand" ++ show (d,t)) $ do
 expandR :: TC m => Int -> Refinement -> m Refinement
 expandR d (RefineDecl n b tau) = do
   tau' <- expand d tau
-  return $ RefineDecl n b tau
+  return $ RefineDecl n b tau'
 
 
 unfold1 :: TC m => Type -> m Type
