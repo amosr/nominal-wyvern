@@ -119,7 +119,7 @@ typecheckNew tau self defs = do
     -- CHANGE FROM PAPER: check that the definition agrees with the type. The paper should do this
     TypeMemDecl _ _ b' taum' <- Lookup.lookupTypeMemDecl t tau (Var self)
     (t1,t2) <- Expansion.tryExpandPair taum taum'
-    ok <- Subtyping.isSubtypeRefinementMember (RefineDecl t EQQ t1) (RefineDecl t b' taum')
+    ok <- Subtyping.isSubtypeRefinementMember (RefineDecl t EQQ t1) (RefineDecl t b' t2)
     assertSub (printf "object type member `%s` is not subtype of type's type member\nobject type member: %s\ntype type member: %s" t (show taum) (show taum')) ok
 
   checkDef def@(ValDefn v tauv ev) = withErrorContext ("field " ++ show def)  $ do
