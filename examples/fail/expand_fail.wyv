@@ -1,0 +1,15 @@
+name Fruit { self =>
+  type T = Fruit { type T = Fruit }
+}
+
+name A { self =>
+  type T <= Fruit
+}
+
+// Expansion will expand both sides to a depth of 2. This expands the right-hand-side, but leaves the left as-is.
+// However, the new right-hand-side:
+//  A { type T = Fruit { type T = Fruit { type T = Fruit }}}
+// has a depth of 3.
+// The left-hand-side is no longer deep enough, but if we expanded it, we would end up with depth 4.
+//
+assert A { type T = Fruit { type T = Fruit } } <: A { type T = Fruit }

@@ -11,7 +11,7 @@ subtype Point <: Moveable
 name FMoveable {x =>
   // type T <= Moveable {type T <= x.T}
   type MT <= Moveable
-  type T   = x.MT { type T <= x.MT }
+  type T  <= x.MT { type T <= x.MT }
 }
 
 let fm = new FMoveable {xx =>

@@ -1,3 +1,4 @@
+// Paper example, should work, requires expansion
 name A { this =>
   type T >= Bot
 }

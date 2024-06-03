@@ -53,7 +53,7 @@ let utils = new Utils {this =>
 let pointCons = new PointCons {pc =>
   def create(pos:IntPair):Point {
     new Point {p =>
-      type MT = Point
+      // type MT = Point
       type T = Point
       val x : Int = pos.l
       val y : Int = pos.r

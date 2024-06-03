@@ -1,0 +1,40 @@
+// Modified from ../../eqEx.wyv: make Set acyclic
+// This example shows an issue with expansion.
+//
+// Given the subtyping check:
+//   Set { elemT = Fruit, elemTX = Fruit } <: Set { elemT = Fruit }
+// We first expand the definition of elemTX on the right-hand-side:
+//   Set { elemT = Fruit, elemTX = Fruit } <: Set { elemT = Fruit, elemTX = Fruit { T >= Fruit }}
+//
+// But, due to the equality on elemTX, we need to check that the two refinements are equal:
+//   Fruit <: Fruit { T >= Fruit }        (ok)
+// and
+//   Fruit { T >= Fruit } <: Fruit        (not ok)
+// This one doesn't work. So, we really need to expand it.
+//
+// right.elemTX <: left.elemTX and
+//
+// However, this expansion makes the right-hand-side deeper -- so we need to expand the left-hand-side more.
+
+name Equatable {z =>
+  type T >= Bot
+  def equals (x:z.T) : Int
+}
+name Fruit {z =>
+  type T = Fruit
+  val ID : Int
+  val weight : Int
+  def equals (x: Fruit) : Int
+}
+subtype Fruit <: Equatable
+
+name Set {z =>
+  type elemT <= Equatable
+  type elemTX = z.elemT {type T >= z.elemT}
+}
+
+let fruit_Set = new Set {type elemT = Fruit} {z =>
+  type elemT = Fruit
+  type elemTX = Fruit
+}
+in fruit_Set

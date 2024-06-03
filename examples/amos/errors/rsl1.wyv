@@ -1,3 +1,4 @@
+// I have no idea what this example was trying to do
 @shape name Shape { self =>
   type A >= Bot
   type B <= Top

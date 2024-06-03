@@ -1,3 +1,4 @@
+// From reviewer 2, requires expansion
 name List { z =>
   type Element <= Top
 }

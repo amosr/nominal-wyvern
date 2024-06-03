@@ -16,7 +16,7 @@ subtype A <: B
 // assert A { type X <= Bot } <: B { type X <= Top }
 // assertNot A { type X <= Top } <: B { type X <= Bot }
 
-let ok : A { type X >= Top } = new A {this =>
+let ok : A { type X <= Top } = new A {this =>
   type X = Top
 }
 in

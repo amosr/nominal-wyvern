@@ -1,3 +1,5 @@
+// Should work, requires expansion
+// Exposed unsoundness in previous implementation of expansion
 name Bool { self =>
 }
 
