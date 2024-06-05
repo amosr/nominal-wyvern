@@ -60,12 +60,8 @@ typecheckExpr (Call p f args) =
     DefDecl _ params taur <- Lookup.lookupDefDecl f tau' p
     assert (printf "Wrong number of arguments: got %d, expected %d" (length args) (length params))
       (length args == length params)
-    -- TODO: EXTENSION: check p: p must be var unless p is not mentioned in type
     let aps = args `zip` params
     goArgs aps taur
-    -- mapM_ checkArg (args `zip` params)
-    -- let taur' = substParams (args `zip` params) taur
-    -- return taur'
   where
     goArgs [] taur = return taur
     goArgs ((arg,param) : rest) taur = do
@@ -139,7 +135,7 @@ typecheckNew tau self defs = do
     -- CHANGE FROM PAPER: check that the definition agrees with the type. The paper should do this
     DefDecl _ cargs cret <- Lookup.lookupDefDecl f tau (Var self)
     checkDefArgs f args cargs taur cret
-    -- TODO: where do we check wellformedness of arg types?
+    -- XXX: where do we check wellformedness of arg types?
     let binds = map (\a -> (argName a, argType a)) args
     local (appendGamma binds) $ do
       -- Change from paper: as in value check above, use infer-mode
@@ -185,7 +181,6 @@ assertTypeValid tau0@(Type b rb) =
   where
     check self tauu r@(RefineDecl t b tau) = do
       mem@(TypeMemDecl _ _ b' tau') <- Lookup.lookupTypeMemDecl t tauu self
-      -- TODO: is this expansion correct even for >= members?
       (tauX,tauX') <- Expansion.tryExpandPair tau tau'
       ok <- Subtyping.isSubtypeRefinementMember (RefineDecl t b tauX) (RefineDecl t b' tauX')
       assertSub (printf "type refinement not subtype\n  refinement: %s\n  class member: %s" (show r) (show mem)) ok

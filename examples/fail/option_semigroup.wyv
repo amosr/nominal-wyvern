@@ -1,0 +1,15 @@
+// This currently fails in type graph check, but I think it should succeed
+
+@shape name Semigroup { self =>
+  type T <= Top
+}
+
+name Option { self =>
+  type T <= Top
+}
+
+// Error: Semigroup used in refinement
+// This check is stricter than the paper
+subtype Option { type T <= Semigroup } <: Semigroup
+
+0

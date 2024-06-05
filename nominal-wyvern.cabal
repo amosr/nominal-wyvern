@@ -25,14 +25,16 @@ library
                        PrettyPrint,
                        RawSyntax,
                        Syntax,
-                       TypeGraph,
                        TypeUtil,
                        Typecheck.Exposure,
                        Typecheck.Lookup,
                        Typecheck.Subtyping,
                        Typecheck.Check,
                        Typecheck.Expansion,
-                       Typecheck
+                       Typecheck,
+                       Separation.Acyclic,
+                       Separation.Base,
+                       Separation.Check
 
   other-extensions:    DeriveDataTypeable
   build-depends:       base

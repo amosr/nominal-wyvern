@@ -17,7 +17,7 @@ languageDef =
               
 lexer = Token.makeTokenParser languageDef
 
-identifier = Token.identifier lexer
+identifier = Token.identifier lexer <?> "identifier"
 reserved   = Token.reserved lexer
 resOp      = Token.reservedOp lexer
 parens     = Token.parens lexer
