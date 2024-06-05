@@ -1,0 +1,12 @@
+// This is outlawed by cycle check
+name A { self =>
+  type T <= Top
+  type X <= self.Y { type T <= self.T }
+  type Y <= self.X { type T <= self.T }
+
+  def ytox(i: self.Y): self.X
+}
+
+let a: A = undefined in
+let y: a.Y = undefined in
+a.ytox(y)

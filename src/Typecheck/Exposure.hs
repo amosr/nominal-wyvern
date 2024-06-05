@@ -76,20 +76,26 @@ downcast tau@(Type base rs) = case base of
   -- Rule Dc-Otherwise(2)
   _ -> return Nothing
 
+avoid :: TC m => Set.Set Bound -> Binding -> Type -> m (Maybe Type)
+avoid checkBounds x t = do
+  fuel <- reader avoidFuel
+  avoidType checkBounds x t fuel
+
 -- `avoid` from Jonathan email discussion 2024/05/26
 -- simplify type to avoid given self binding
 -- TODO: parameterise by bound-set {EQQ}, {LEQ,EQQ} or {EQQ,GEQ}
-avoid :: TC m => Set.Set Bound -> Binding -> Type -> m (Maybe Type)
-avoid checkBounds x (Type t r) = withErrorContext ("avoid:" ++ show (x,t,r)) $ do
-  t' <- avoidBase checkBounds x t
-  r' <- mapM (avoidRefinement checkBounds x) r
+avoidType :: TC m => Set.Set Bound -> Binding -> Type -> Int -> m (Maybe Type)
+avoidType checkBounds x (Type t r) 0 = return Nothing
+avoidType checkBounds x (Type t r) fuel = withErrorContext ("avoid:" ++ show (x,t,r)) $ do
+  t' <- avoidBase checkBounds x t fuel
+  r' <- mapM (\r -> avoidRefinement checkBounds x r fuel) r
   return (merge <$> t' <*> sequence r')
 
-avoidBase :: TC m => Set.Set Bound -> Binding -> BaseType -> m (Maybe Type)
-avoidBase _ x TopType = return $ Just $ Type TopType []
-avoidBase _ x BotType = return $ Just $ Type BotType []
-avoidBase _ x (NamedType n) = return $ Just $ Type (NamedType n) []
-avoidBase checkBounds x (PathType p t)
+avoidBase :: TC m => Set.Set Bound -> Binding -> BaseType -> Int -> m (Maybe Type)
+avoidBase _ x TopType _ = return $ Just $ Type TopType []
+avoidBase _ x BotType _ = return $ Just $ Type BotType []
+avoidBase _ x (NamedType n) _ = return $ Just $ Type (NamedType n) []
+avoidBase checkBounds x (PathType p t) fuel
   -- XXX: need catch here? if type has no such member, is it a top-level error?
   -- implement with catch for now, as it gives a better error message
   | p == Var x = catch $ do
@@ -98,15 +104,14 @@ avoidBase checkBounds x (PathType p t)
     taup' <- exposure taup
     TypeMemDecl _ _ b taut <- Lookup.lookupTypeMemDecl t taup' p
     if Set.member b checkBounds
-    then avoid checkBounds x taut
-    -- then return (Just taut)
+    then avoidType checkBounds x taut (fuel - 1)
     else return Nothing
   | otherwise
   = return $ Just $ Type (PathType p t) []
  where
   catch act = catchError act (\e -> withErrorContext ("avoid:fallback:" ++ show e) $ return Nothing)
 
-avoidRefinement :: TC m => Set.Set Bound -> Binding -> Refinement -> m (Maybe Refinement)
-avoidRefinement checkBounds x (RefineDecl n b tau) = do
-  t' <- avoid checkBounds x tau
+avoidRefinement :: TC m => Set.Set Bound -> Binding -> Refinement -> Int -> m (Maybe Refinement)
+avoidRefinement checkBounds x (RefineDecl n b tau) fuel = do
+  t' <- avoidType checkBounds x tau fuel
   return (RefineDecl n b <$> t')

@@ -1,0 +1,14 @@
+// This causes `avoid` to blow up if it supports unfolding <= upper bounds
+// So we introduce a fuel / depth limit
+@shape name S { self =>
+  type T <= Top
+}
+
+name A { self =>
+  // avoid A::T evaluates to S { T = S { T = S { T = ... }}}
+  type T <= S { type T <= self.T }
+}
+
+let a: A = undefined in
+let aa: a.T = undefined in
+aa

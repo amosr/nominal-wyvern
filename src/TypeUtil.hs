@@ -30,22 +30,23 @@ data Context = Context
     gamma :: [(Binding, Type)],
     locallyFreshSupply :: Int,
     isCheck :: CheckSubtype,
-    extensions :: Extensions
+    extensions :: Extensions,
+    avoidFuel :: Int
   }
 
-emptyCtx = Context [] [] 0 On (Extensions False False)
+emptyCtx = Context [] [] 0 On (Extensions False False) 10
 
 appendTopLevel :: [TopLevelDeclaration] -> Context -> Context
-appendTopLevel ds (Context t g f c e) = Context (ds ++ t) g f c e
+appendTopLevel ds ctx = ctx { toplevel = ds ++ toplevel ctx }
 
 appendGamma :: [(Binding, Type)] -> Context -> Context
-appendGamma ds (Context t g f c e) = Context t (ds ++ g) f c e
+appendGamma ds ctx = ctx { gamma = ds ++ gamma ctx }
 
 locallyFresh' :: Type -> Context -> (Context, Binding)
-locallyFresh' tau (Context t g f c e) =
+locallyFresh' tau ctx =
   -- XXX: does this need to be globally unique?
-  let b = Binding "^fresh" f in
-  (Context t ((b,tau) : g) (f + 1) c e, b)
+  let b = Binding "^fresh" (locallyFreshSupply ctx) in
+  (ctx { gamma = (b,tau) : gamma ctx, locallyFreshSupply = locallyFreshSupply ctx + 1 }, b)
 
 locallyFresh :: TC m => Type -> (Binding -> m a) -> m a
 locallyFresh tau act = do
@@ -54,7 +55,7 @@ locallyFresh tau act = do
   local (const c') (act b)
 
 turnSubtypingOff :: Context -> Context
-turnSubtypingOff (Context t g f _ e) = Context t g f Off e
+turnSubtypingOff ctx = ctx { isCheck = Off }
 
 type TC m = (MonadReader Context m, MonadError String m, MonadFail m)
 
