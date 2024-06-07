@@ -1,0 +1,14 @@
+@shape name Comparable { self =>
+  type T <= Top
+  def compare(other: self.T): Int
+}
+
+name Array { self =>
+  type T <= Top
+}
+
+name Sorter { self =>
+  def sort(arr: Array { type T <= Comparable }): Array { type T = arr.T }
+}
+
+0

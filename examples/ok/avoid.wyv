@@ -1,0 +1,97 @@
+// Tests for avoidance
+// not a very good automated test - requires manual checking...
+// Different combinations with bounds L (<=) E (=) and G (>=).
+
+name Container { self =>
+  type T <= Top
+}
+
+// Local type has members with 3x3 different combinations of bounds
+name Local { self =>
+  type T <= Top
+  type LL <= Container { type T <= self.T }
+  type LE <= Container { type T = self.T }
+  type LG <= Container { type T >= self.T }
+  type EL  = Container { type T <= self.T }
+  type EE  = Container { type T = self.T }
+  type EG  = Container { type T >= self.T }
+  type GL >= Container { type T <= self.T }
+  type GE >= Container { type T = self.T }
+  type GG >= Container { type T >= self.T }
+}
+
+// L** tests: local binding for testing with <= bound
+let l: Local { type T <= Int } = undefined in
+
+// Container { type T <= Int }
+let lll: l.LL = undefined in
+// Container { type T <= Int }
+let lle: l.LE = undefined in
+// ERROR (Container { type T <= Top }?)
+let llg: l.LG = undefined in
+
+// Container { type T <= Int }
+let lel: l.EL = undefined in
+// Container { type T <= Int }
+let lee: l.EE = undefined in
+// ERROR
+let leg: l.EG = undefined in
+
+// ERROR
+let lgl: l.GL = undefined in
+// ERROR
+let lge: l.GE = undefined in
+// ERROR
+let lgg: l.GG = undefined in
+
+// E** tests
+let e: Local { type T  = Int } = undefined in
+
+// Container { type T <= Int }
+let ell: e.LL = undefined in
+// Container { type T  = Int }
+let ele: e.LE = undefined in
+// Container { type T >= Int }
+let elg: e.LG = undefined in
+
+// Container { type T <= Int }
+let eel: e.EL = undefined in
+// Container { type T  = Int }
+let eee: e.EE = undefined in
+// Container { type T >= Int }
+let eeg: e.EG = undefined in
+
+// ERROR
+let egl: e.GL = undefined in
+// ERROR
+let ege: e.GE = undefined in
+// ERROR
+let egg: e.GG = undefined in
+
+// G** tests
+let g: Local { type T >= Int } = undefined in
+
+// ERROR
+let gll: g.LL = undefined in
+// Container { type T >= Int }
+let gle: g.LE = undefined in
+// Container { type T >= Int }
+let glg: g.LG = undefined in
+
+// ERROR
+let gel: g.EL = undefined in
+// Container { type T >= Int }
+let gee: g.EE = undefined in
+// Container { type T >= Int }
+let geg: g.EG = undefined in
+
+// ERROR
+let ggl: g.GL = undefined in
+// ERROR
+let gge: g.GE = undefined in
+// ERROR
+let ggg: g.GG = undefined in
+
+
+// to "run" test, change this to each binding and check that result type agrees with corresponding comment
+lll
