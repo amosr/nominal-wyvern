@@ -89,11 +89,15 @@ lookupPType pt = do
 --check condition (3), that no shapes appear in the refinements of any type
 checkTy :: Type -> TGMonad ()
 checkTy (Type _ rs) = mapM_ check rs
-  where check (RefineDecl _ _ (Type bt rt)) = do
+  where
+    -- XXX: CHANGE FROM PAPER: the original implementation disallowed shapes altogether, so that shapes could not be mentioned in refinements.
+    -- This extra restriction outlawed programs like "sort(x: Array { type T <= Comparable })" (assuming Comparable is a shape.)
+    -- I have relaxed this restriction to match the paper instead.
+    check (RefineDecl _ _ (Type bt [])) = return ()
+    check (RefineDecl _ _ (Type bt rt)) = do
           (bt',btTA) <- getPType bt
-          -- XXX: CHANGE FROM PAPER: this disallows shapes altogether, even if they are not refined (rt = []). Bug or intentional?
           case btTA of
             Shape    -> invalidShape bt
             Material -> return ()
           mapM_ check rt
-        invalidShape shape = throwError $ printf "invalid shape usage: shape type %s used in refinement" (show shape)
+    invalidShape shape = throwError $ printf "invalid shape usage: shape type %s used in refinement" (show shape)

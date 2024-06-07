@@ -6,7 +6,7 @@
 
 name A { self =>
   // avoid A::T evaluates to S { T = S { T = S { T = ... }}}
-  type T <= S { type T <= self.T }
+  type T <= S { type T = self.T }
 }
 
 let a: A = undefined in
