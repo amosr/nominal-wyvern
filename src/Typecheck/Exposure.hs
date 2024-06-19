@@ -79,42 +79,31 @@ downcast tau@(Type base rs) = case base of
 -----------------------------
 -- Avoidance
 
-avoid :: TC m => Set.Set Bound -> Binding -> Type -> m (Maybe Type)
+avoid :: TC m => Bound -> Binding -> Type -> m (Maybe Type)
 avoid checkBounds x t = do
   fuel <- reader avoidFuel
-  tb' <- avoidType x t fuel
-  return (do
-    (t',b') <- tb'
-    if Set.member b' checkBounds
-    then Just t'
-    else Nothing)
-
-joinBound :: Bound -> Bound -> Maybe Bound
-joinBound EQQ b   = Just b
-joinBound b   EQQ = Just b
-joinBound LEQ LEQ = Just LEQ
-joinBound GEQ GEQ = Just GEQ
-joinBound LEQ GEQ = Nothing
-joinBound GEQ LEQ = Nothing
+  avoidType checkBounds x t fuel
 
 -- `avoid` from Jonathan email discussion 2024/05/26
 -- simplify type to avoid given self binding
 -- TODO: parameterise by bound-set {EQQ}, {LEQ,EQQ} or {EQQ,GEQ}
-avoidType :: TC m => Binding -> Type -> Int -> m (Maybe (Type, Bound))
-avoidType x (Type t r) 0 = return Nothing
-avoidType x (Type t r) fuel = withErrorContext ("avoid:" ++ show (x,t,r)) $ do
-  tb' <- avoidBase x t fuel
-  r' <- mapM (\r -> avoidRefinement x r fuel) r
+avoidType :: TC m => Bound -> Binding -> Type -> Int -> m (Maybe Type)
+avoidType b x (Type t r) 0 = return Nothing
+avoidType b x (Type t r) fuel = withErrorContext ("avoid:" ++ show (b,x,t,r)) $ do
+  t' <- avoidBase b x t fuel
+  -- XXX WRONG: the returned bound b' does not reflect whether refinements are subtypes
+  -- Should restrict refinement unfolding according to b' as in paper
+  r' <- mapM (\r -> avoidRefinement b x r fuel) r
   return (do
-    (t',b') <- tb'
+    t' <- t'
     r'' <- sequence r'
-    Just (merge t' r'', b'))
+    Just (merge t' r''))
 
-avoidBase :: TC m => Binding -> BaseType -> Int -> m (Maybe (Type, Bound))
-avoidBase x TopType _ = return $ Just (Type TopType [], EQQ)
-avoidBase x BotType _ = return $ Just (Type BotType [], EQQ)
-avoidBase x (NamedType n) _ = return $ Just (Type (NamedType n) [], EQQ)
-avoidBase x (PathType p t) fuel
+avoidBase :: TC m => Bound -> Binding -> BaseType -> Int -> m (Maybe Type)
+avoidBase _ x TopType _ = return $ Just (Type TopType [])
+avoidBase _ x BotType _ = return $ Just (Type BotType [])
+avoidBase _ x (NamedType n) _ = return $ Just (Type (NamedType n) [])
+avoidBase bReq x (PathType p t) fuel
   -- XXX: need catch here? if type has no such member, is it a top-level error?
   -- implement with catch for now, as it gives a better error message
   | p == Var x = catch $ do
@@ -122,20 +111,18 @@ avoidBase x (PathType p t) fuel
     -- CHANGE: different from Jonathan's: perform exposure here
     taup' <- exposure taup
     TypeMemDecl _ _ b taut <- Lookup.lookupTypeMemDecl t taup' p
-    tb' <- avoidType x taut (fuel - 1)
+    t' <- avoidType bReq x taut (fuel - 1)
     return (do
-      (t',b') <- tb'
-      b'' <- joinBound b b'
-      Just (t', b''))
+      _ <- joinBound bReq b
+      t')
   | otherwise
-  = return $ Just (Type (PathType p t) [], EQQ)
+  = return $ Just (Type (PathType p t) [])
  where
   catch act = catchError act (\e -> withErrorContext ("avoid:fallback:" ++ show e) $ return Nothing)
 
-avoidRefinement :: TC m => Binding -> Refinement -> Int -> m (Maybe Refinement)
-avoidRefinement x (RefineDecl n b tau) fuel = do
-  tb' <- avoidType x tau fuel
+avoidRefinement :: TC m => Bound -> Binding -> Refinement -> Int -> m (Maybe Refinement)
+avoidRefinement b x (RefineDecl n br tau) fuel = do
+  t' <- avoidType (productBound b br) x tau fuel
   return (do
-    (t',b') <- tb'
-    b'' <- joinBound b b'
-    Just (RefineDecl n b'' t'))
+    t' <- t'
+    Just (RefineDecl n br t'))

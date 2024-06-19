@@ -68,7 +68,7 @@ unfold1 tau@(Type (NamedType n) r) = do
     return (Type (NamedType n) (mergeRefs r r'))
  where
   takeField self tt@(TypeMemDecl _ t b tau) = do
-    tau' <- Exposure.avoid Exposure.bounds'EQQ self tau
+    tau' <- Exposure.avoid EQQ self tau
     case tau' of
       Just tau' -> return [RefineDecl t b tau']
       Nothing -> return []

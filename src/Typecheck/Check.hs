@@ -38,7 +38,7 @@ typecheckExpr (Let x ta ex e) = do
       Nothing -> return taux
   local (appendGamma [(x, taux)]) $ do
     taud <- typecheckExpr e
-    taud' <- Exposure.avoid Exposure.bounds'LE x taud
+    taud' <- Exposure.avoid LEQ x taud
     case taud' of
       Just taud' -> return taud'
       Nothing ->

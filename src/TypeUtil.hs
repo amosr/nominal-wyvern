@@ -256,3 +256,21 @@ freeInPath b (Var b') = b == b'
 freeInPath b (Field p _) = freeInPath b p
 
 freeInRef b (RefineDecl _ _ tau) = freeInType b tau
+
+joinBound :: Bound -> Bound -> Maybe Bound
+joinBound EQQ b   = Just b
+joinBound b   EQQ = Just b
+joinBound LEQ LEQ = Just LEQ
+joinBound GEQ GEQ = Just GEQ
+joinBound LEQ GEQ = Nothing
+joinBound GEQ LEQ = Nothing
+
+productBound :: Bound -> Bound -> Bound
+productBound EQQ _ = EQQ
+productBound _ EQQ = EQQ
+
+productBound LEQ LEQ = LEQ
+productBound GEQ GEQ = LEQ
+
+productBound LEQ GEQ = GEQ
+productBound GEQ LEQ = GEQ
